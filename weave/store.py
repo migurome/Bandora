@@ -113,6 +113,16 @@ class Store:
         rows = self._read("SELECT artist_id FROM source_id WHERE source=? AND ext_id=?", (source, str(ext_id)))
         return rows[0][0] if rows else None
 
+    def ext_id(self, artist_id: int, source: str) -> str | None:
+        rows = self._read("SELECT ext_id FROM source_id WHERE artist_id=? AND source=? ORDER BY rowid LIMIT 1", (artist_id, source))
+        return rows[0][0] if rows else None
+
+    def by_alias(self, k: str) -> int | None:
+        """Artista cuyo alias normalizado es exactamente k (el de más fans si hay varios)."""
+        rows = self._read("""SELECT a.id FROM alias al JOIN artist a ON a.id = al.artist_id WHERE al.norm=?
+                             ORDER BY a.fans DESC LIMIT 1""", (k,))
+        return rows[0][0] if rows else None
+
     def artist(self, artist_id) -> dict | None:
         rows = self._read("SELECT * FROM artist WHERE id=?", (artist_id,))
         if not rows:
