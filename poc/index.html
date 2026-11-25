@@ -113,7 +113,6 @@ audio { width: 100%; height: 34px; flex: none; }
 </div>
 <div id="foot">
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
-  <button id="mute" class="icon" title="Sonidos" aria-label="Activar o silenciar sonidos"></button>
 </div>
 <div id="tip"></div>
 <svg id="svg"></svg>
@@ -388,10 +387,9 @@ async function expand(n) {
 
 // ---------- Sonidos (sintetizados con Web Audio, sin archivos) ----------
 const sfx = (() => {
-  let ctx, muted = localStorage.getItem('em-mute') === '1';
+  let ctx;  // sonidos siempre activos
   // Burbuja: seno con barrido rápido de tono (sube = «pop», baja = «bloop» hacia dentro) y caída muy corta
   function bubble(freq, at = 0, ratio = 2.6, dur = 0.13, vol = 0.16) {
-    if (muted) return;
     ctx ??= new AudioContext();
     const f = freq * (0.92 + Math.random() * 0.16);  // variación para que no suenen idénticas
     const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
@@ -403,8 +401,6 @@ const sfx = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
   }
-  const btn = () => { $('mute').textContent = muted ? '🔇' : '🔊'; };
-  queueMicrotask(() => { btn(); $('mute').onclick = () => { muted = !muted; localStorage.setItem('em-mute', muted ? '1' : '0'); btn(); if (!muted) bubble(700); }; });
   return {
     open: n => { for (let i = 0; i < n; i++) bubble(380 + i * 70, i * 0.075 + Math.random() * 0.02); },
     nope: () => bubble(260, 0, 0.55, 0.16, 0.14),
