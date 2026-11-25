@@ -30,37 +30,27 @@ button:hover { background: #3a3f49; }
 button.primary { background: var(--accent); color: #111; font-weight: 600; }
 #status { color: var(--text); font-size: 13px; min-height: 1.4em; margin-bottom: 4px; }
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
-#foot button { padding: 4px 10px; font-size: 12px; }
-/* Pila de carga: lateral izquierdo, ancho fijo; cada artista sale deslizándose hacia el grafo */
-#queue { position: fixed; left: 16px; top: 76px; bottom: 110px; width: 380px;  /* más ancho que las tarjetas: espacio para la salida */ z-index: 2; display: none; flex-direction: column; gap: 6px;
-         overflow: hidden; font-size: 13px; pointer-events: none;
-         mask-image: linear-gradient(to bottom, #000 75%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent); }
-#queue .head { width: 210px; color: var(--muted); font-size: 12px; padding: 0 4px 2px; }
-#queue .head b { color: var(--text); font-size: 15px; margin-right: 4px; }
-#queue .qi { flex: none; width: 210px; max-height: 40px; padding: 7px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
-             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-             transition: transform .4s ease, opacity .4s ease, max-height .35s ease .15s, padding .35s ease .15s, margin .35s ease .15s, border-width .35s ease .15s; }
-#queue .qi.now { border-color: var(--accent); color: var(--accent); }
-#queue .qi.now::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent);
-                         animation: pulse 1s ease-in-out infinite; }
-#queue .qi.out { transform: translateX(120px) scale(.92); opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -6px; border-width: 0; }
-#queue .qi.fail { text-decoration: line-through; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { #queue .qi { transition: none; } }
-#info { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 4; display: none; flex-direction: column; gap: 8px;
-        padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
-#info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
-#info h2 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
-#info .row { margin-top: auto; align-items: center; }
+#foot button { padding: 4px 10px; font-size: 12px; vertical-align: middle; }
+#foot button:disabled { opacity: .35; cursor: default; }
+/* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
+#busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
+#busy.on { display: block; }
+#busy svg { width: 100%; height: 100%; }  /* la regla general de svg (grafo a pantalla completa) no aplica aquí */
+#busy.center { left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); }
+#busy.bar { top: 17px; right: 30px; width: 38px; height: 38px; }
+#busy .thread { stroke-dasharray: 26 14; animation: weave 1.2s linear infinite; }
+#busy .n { animation: beat 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+#busy .n:nth-of-type(2) { animation-delay: .15s; } #busy .n:nth-of-type(3) { animation-delay: .3s; }
+#busy .n:nth-of-type(4) { animation-delay: .45s; } #busy .n:nth-of-type(5) { animation-delay: .6s; }
+@keyframes weave { to { stroke-dashoffset: -40; } }
+@keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n { animation: pulse 1.6s ease-in-out infinite; } }
 .icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
 .icon svg { width: 20px; height: 20px; }
-body.panel .ui { right: 336px; }
 .ui .bar { display: flex; gap: 8px; }
 .ui select { flex: none; max-width: 220px; padding: 0 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
              border-radius: 999px; font: inherit; cursor: pointer; }
 .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin: 4px 4px 0 0; font-size: 12px; }
-.mine { padding: 8px 10px; border-radius: 8px; background: #2b2612; color: var(--accent); }
-.new { padding: 8px 10px; border-radius: 8px; background: #12262b; color: #7fd3e6; }
-audio { width: 100%; height: 34px; flex: none; }
 #legend { position: fixed; left: 16px; bottom: 16px; z-index: 2; font-size: 12px; max-width: 320px; }
 #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .node { cursor: pointer; }
@@ -71,6 +61,22 @@ audio { width: 100%; height: 34px; flex: none; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: pulse 1.6s ease-in-out infinite; } }
 @keyframes pulse { 50% { opacity: .3; } }
 .node text { pointer-events: none; user-select: none; }
+/* Menú del círculo ampliado: Spotify, Deezer, play/pausa, siguiente */
+.opt { cursor: pointer; }
+.opt .pop { animation: pop .18s ease-out; transform-box: fill-box; transform-origin: center; }  /* animación en un grupo interior: no pisa la posición */
+.opt .bg { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.opt:hover .bg { stroke: var(--accent); }
+.opt.primary .bg { fill: var(--accent); stroke: var(--accent); }
+.opt.primary .ico { color: #111; }
+.opt.off { opacity: .35; cursor: default; }
+.opt .ico { color: var(--text); pointer-events: none; }
+@keyframes pop { from { opacity: 0; transform: scale(.4); } }
+.node .dot, .node .pic, .node clipPath circle { transition: r .2s; }
+/* Artista sonando: foto apagada y ▶ encima */
+.node .pic { transition: filter .3s; }
+.node.playing .pic { filter: brightness(.4); }
+.node .playmark { fill: #fff; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.node.playing .playmark { opacity: .95; animation: pulse 1.6s ease-in-out infinite; }
 .link { stroke: #4a5060; stroke-opacity: .7; }
 .link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
 .node, .link { transition: opacity .25s; }
@@ -78,27 +84,44 @@ audio { width: 100%; height: 34px; flex: none; }
 .link.off { opacity: .04; }
 #legend button { background: none; padding: 2px 6px; margin: 0 4px 2px 0; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; }
 #legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
-#pathBtn { flex: none; border-radius: 999px; padding: 0 16px; background: var(--panel); border: 1px solid var(--line); }
-#pathBtn.on { background: var(--accent); color: #111; border-color: var(--accent); }
+/* Terminal: la barra acepta artistas y comandos (/from … to …, /clear) */
+.ui .bar { position: relative; }
+.ui .bar::before { content: '›'; position: absolute; left: 16px; top: 50%; transform: translateY(-52%); color: var(--accent); font-size: 22px; pointer-events: none; }
+.ui input { padding-left: 38px; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; }
+.ui input.err { border-color: #e5484d; animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+#results li.cmd { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--muted); }
+#results li.cmd b { color: var(--accent); font-weight: 600; }
+.node text.under { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+#foot button[aria-pressed="true"] { background: var(--accent); color: #111; }
 #tip { position: fixed; pointer-events: none; background: #000c; padding: 6px 9px; border-radius: 6px; font-size: 12px; z-index: 3; display: none; }
 </style>
 </head>
 <body>
 <div class="ui">
   <div class="bar">
-    <input id="q" placeholder="Busca una banda: Marea, Michael Jackson…" autocomplete="off" aria-label="Buscar banda">
-    <button id="pathBtn" title="Camino entre dos artistas">De → a</button>
-    <select id="lists" aria-label="Generar el grafo de una de mis listas"><option value="">Mis listas</option></select>
+    <input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /clear)">
   </div>
   <ul id="results"></ul>
 </div>
-<div id="info"></div>
 <div id="legend"></div>
-<div id="queue" aria-live="polite"></div>
+<div id="busy" role="status" aria-label="Cargando">
+  <svg viewBox="0 0 128 128">
+    <g stroke-linecap="round" fill="none" stroke-width="5">
+      <line x1="22" y1="34" x2="43" y2="94" stroke="#a3c9f5"/><line x1="43" y1="94" x2="64" y2="50" stroke="#c9bbf6"/>
+      <line x1="64" y1="50" x2="85" y2="94" stroke="#b5e3a1"/><line x1="85" y1="94" x2="106" y2="34" stroke="#f5a3a3"/>
+      <path class="thread" d="M6 70 C 26 84, 40 64, 64 76 S 102 66, 122 78" stroke="#f2c94c" stroke-width="4.5"/>
+    </g>
+    <g stroke="#0f1115" stroke-width="3">
+      <circle class="n" cx="22" cy="34" r="11" fill="#a3c9f5"/><circle class="n" cx="43" cy="94" r="11" fill="#c9bbf6"/>
+      <circle class="n" cx="64" cy="50" r="13" fill="#b5e3a1"/><circle class="n" cx="85" cy="94" r="11" fill="#f5a3a3"/>
+      <circle class="n" cx="106" cy="34" r="11" fill="#9de3d0"/>
+    </g>
+  </svg>
+</div>
 <div id="foot">
-  <div id="status"></div>
-  <button id="clear">Limpiar</button>
-  <button id="mute" title="Sonidos" aria-label="Activar o silenciar sonidos"></button>
+  <button id="play" class="icon" aria-label="Reproducir o parar"></button>
+  <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
 </div>
 <div id="tip"></div>
 <svg id="svg"></svg>
@@ -129,16 +152,18 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const nf = new Intl.NumberFormat('es-ES');
 const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
 const api = async url => { const r = await fetch(url); const j = await r.json(); if (j && j.error) throw new Error(j.error); return j; };
-const status = t => $('status').textContent = t;
+const status = () => {};  // sin mensajes de texto: el estado se comunica con iconos, colores y sonidos
+function flashError() {
+  const q = $('q'); q.classList.remove('err'); void q.offsetWidth; q.classList.add('err'); sfx.nope();
+  setTimeout(() => q.classList.remove('err'), 900);
+}
 
-let PROFILE = {};
 const nodes = [], links = [], byId = new Map(), byName = new Map(), cache = new Map();
 // Clave por nombre normalizado: Deezer tiene fichas duplicadas ("B.B. King" / "B.B.King") con distinto id
 const key = a => norm(a.name) || 'id' + a.id;
 const inMap = a => byId.has(a.id) || byName.has(key(a));
 const genreColor = new Map(FAMILIES.map(([f], i) => [f, PALETTE[i]]).concat([['Otros', OTHER]]));
 const colorOf = g => genreColor.get(genreColor.has(g) ? g : family(g));
-const mine = name => { const k = norm(name); return k && PROFILE[k]; };
 
 // ---------- Dibujo ----------
 const svg = d3.select('#svg');
@@ -149,7 +174,7 @@ const zoom = d3.zoom().scaleExtent([0.08, 4]).on('zoom', e => {
   if (e.sourceEvent) autoFit = false;  // el usuario ha tocado el zoom: no le movemos la vista
   root.attr('transform', e.transform);
   k = e.transform.k;
-  gNodes.selectAll('text').attr('display', k < 0.6 ? 'none' : null);
+  gNodes.selectAll('text').attr('display', labelDisplay());
 });
 svg.call(zoom).on('dblclick.zoom', null);
 
@@ -158,7 +183,7 @@ const sim = d3.forceSimulation(nodes)
   .force('link', d3.forceLink(links).id(d => d.id)
     .distance(l => radius(l.source) + radius(l.target) + 70).strength(0.6))
   .force('charge', d3.forceManyBody().strength(d => -300 - 8 * radius(d)).distanceMax(700))
-  .force('collide', d3.forceCollide(d => radius(d) + 14).strength(1))
+  .force('collide', d3.forceCollide(d => radius(d) + (photoMode ? 26 : 14)).strength(1))  // hueco para el nombre bajo la foto
   .force('gx', d3.forceX(d => anchor(d).x).strength(d => d.genre ? 0.012 : 0))
   .force('gy', d3.forceY(d => anchor(d).y).strength(d => d.genre ? 0.012 : 0))
   .force('cx', d3.forceX(() => innerWidth / 2).strength(0.008))  // las bandas sueltas no se alejan sin fin
@@ -176,11 +201,14 @@ function anchor(d) {
   const R = n === 1 ? 0 : 140 + 30 * n;
   return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
 }
+let showLabels = localStorage.getItem('weave-labels') === '1';  // géneros (leyenda): botón de etiqueta o /label
+const labelDisplay = () => k < 0.6 ? 'none' : null;  // los nombres se ven siempre (salvo muy alejado)
+const photoMode = true;  // los círculos muestran la foto del artista; el color del género va en el aro
 function radius(d) {
-  const p = mine(d.name);
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
-  const size = (d.origin ? base + 8 : base) + (p ? Math.min(10, Math.sqrt(p.min) / 3) : 0);
-  return Math.max(size, label(d).r);
+  const size = d.origin ? base + 8 : base;
+  const r = photoMode ? Math.max(size + 6, 26) : Math.max(size, label(d).r);
+  return d.open ? r * 1.8 : r;  // ampliado con su menú
 }
 
 // Nombre dentro del círculo: hasta 2 líneas equilibradas; el radio cubre la caja del texto.
@@ -214,7 +242,7 @@ function render() {
   const n = gNodes.selectAll('g.node').data(nodes, d => d.id);
   n.exit().remove();
   const e = n.enter().append('g')
-    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; sfx.select(); select(d); })  // al interactuar, la vista deja de moverse sola
+    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })  // al interactuar, la vista deja de moverse sola
     .on('dblclick', (ev, d) => { ev.stopPropagation(); expand(d); })
     .on('mousemove', (ev, d) => tipShow(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
     .call(d3.drag()
@@ -224,41 +252,55 @@ function render() {
   e.append('circle').attr('class', 'ring');
   e.append('circle').attr('class', 'spin');
   e.append('circle').attr('class', 'dot');
+  // Foto recortada en círculo (modo fotos): clipPath propio por nodo
+  e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');
+  e.append('image').attr('class', 'pic').attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', d => `url(#clip${d.id})`);
+  e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
   e.append('text').attr('text-anchor', 'middle').attr('class', 'in');
-  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : ''));
+  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
+  all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
+  renderMenus(all);
   // Sin género todavía: gris con borde punteado (se colorea una sola vez, al llegar el género)
+  all.select('clipPath circle').attr('r', radius);
+  all.select('.pic').attr('display', d => photoMode && d.picture ? null : 'none').attr('href', d => d.picture || null)
+    .attr('x', d => -radius(d)).attr('y', d => -radius(d)).attr('width', d => 2 * radius(d)).attr('height', d => 2 * radius(d));
+  // Con foto, el color del género pasa a ser un aro grueso alrededor
   all.select('.dot').attr('r', radius).attr('fill', d => d.genre ? colorOf(d.genre) : 'var(--panel)')
-    .attr('stroke', d => d.selected ? '#fff' : d.genre ? 'none' : 'var(--muted)')
-    .attr('stroke-dasharray', d => d.genre || d.selected ? null : '3 3').attr('stroke-width', d => d.selected ? 3 : 1.5);
-  // Aro dorado = ya está en tu huella de Spotify
+    .attr('stroke', d => d.selected ? '#fff' : photoMode && d.genre ? colorOf(d.genre) : d.genre ? 'none' : 'var(--muted)')
+    .attr('stroke-dasharray', d => d.genre || d.selected ? null : '3 3').attr('stroke-width', d => d.selected ? 3 : photoMode ? 4 : 1.5);
+  // Aro punteado = la banda ya no admite más conexiones
   all.select('.ring').attr('r', d => radius(d) + 4).attr('fill', 'none')
-    .attr('stroke', d => mine(d.name) ? 'var(--accent)' : 'none').attr('stroke-width', d => d.origin ? 3 : 2)
-    .attr('stroke-dasharray', d => d.exhausted ? '2 3' : null);
+    .attr('stroke', d => d.exhausted ? 'var(--muted)' : 'none').attr('stroke-width', 2).attr('stroke-dasharray', '2 3');
   all.select('.spin').attr('r', d => radius(d) + 8)
     .attr('stroke-dasharray', d => { const c = 2 * Math.PI * (radius(d) + 8); return `${c * 0.28} ${c}`; })
     .attr('display', d => d.loading || (!d.genre && !d.failed) ? null : 'none');
   all.select('text').each(function (d) {
     const L = label(d);
-    d3.select(this).style('font', L.font).attr('fill', d.genre ? '#15171c' : 'var(--text)').attr('display', k < 0.6 ? 'none' : null)
+    const under = photoMode;  // con foto, el nombre va debajo del círculo
+    d3.select(this).style('font', L.font).classed('under', under).attr('fill', d.genre && !under ? '#15171c' : 'var(--text)')
+      .attr('display', labelDisplay())
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
-      .attr('dy', (t, i) => i === 0 ? (-(L.lines.length - 1) * LINE_H / 2 + 4) : LINE_H).text(t => t);
+      .attr('dy', (t, i) => i > 0 ? LINE_H
+        : under ? (d.open ? -(radius(d) + 10) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
+        : -(L.lines.length - 1) * LINE_H / 2 + 4).text(t => t);
   });
 
   sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
   renderLegend();
+  if (window.playerReady) playIcon();  // refresca el botón desplegar del pie
 }
 
 // Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más allá de 1.2×)
-function fitIfNeeded() {
+function fitIfNeeded(force = false) {
   if (!nodes.length) return;
   const t = d3.zoomTransform(svg.node());
-  const left = stack.visible ? 240 : 20;
+  const left = 20;
   const x0 = d3.min(nodes, d => d.x - radius(d)), x1 = d3.max(nodes, d => d.x + radius(d));
   const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
   const out = nodes.some(d => { const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;  // cuenta el borde del círculo, no solo el centro
-    return sx - r < left || sx + r > innerWidth - 330 || sy - r < 70 || sy + r > innerHeight - 90; });
-  if (!out) return;
-  const w = innerWidth - 340 - left, h = innerHeight - 180;  // deja libres la barra, la pila, la ficha y el pie
+    return sx - r < left || sx + r > innerWidth - 20 || sy - r < 70 || sy + r > innerHeight - 90; });
+  if (!out && !force) return;
+  const w = innerWidth - 20 - left, h = innerHeight - 180;  // deja libres la barra y el pie
   // nunca por debajo de 0.6: el encuadre automático no debe ocultar los nombres
   const s = Math.max(0.6, Math.min(1.2, 0.9 * Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80))));
   svg.transition().duration(700).call(zoom.transform,
@@ -273,6 +315,7 @@ function tick() {
 // Leyenda = filtro: pulsar un género lo oculta o lo muestra
 const hidden = new Set();
 function renderLegend() {
+  $('legend').style.display = showLabels ? '' : 'none';  // la leyenda (filtro de género) es una etiqueta más
   const present = new Set(nodes.map(d => d.genre));
   $('legend').innerHTML = [...genreColor].filter(([g]) => present.has(g)).map(([g, c]) =>
     `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${c}"></i>${esc(g)}</button>`).join('');
@@ -282,9 +325,7 @@ function renderLegend() {
 }
 
 function tipShow(ev, d) {
-  const p = mine(d.name);
-  $('tip').innerHTML = `<b>${esc(d.name)}</b><br>${esc(d.sub || d.genre || 'cargando género…')}` +
-    (p ? `<br><span style="color:var(--accent)">En tu huella</span>` : '<br>Nuevo para ti');
+  $('tip').innerHTML = `<b>${esc(d.name)}</b><br>${esc(d.sub || d.genre || '…')}`;
   Object.assign($('tip').style, { display: 'block', left: ev.clientX + 14 + 'px', top: ev.clientY + 14 + 'px' });
 }
 
@@ -316,7 +357,7 @@ function placeAt(n, c, ang) {
 // Nodo a partir de la ficha completa: nunca entra al grafo una banda a medio cargar
 function addFull(full, near, origin = false) {
   const n = addNode(full, near, origin);
-  n.sub = full.genres[0]; n.genre = family(n.sub);
+  n.sub = full.genres[0]; n.genre = family(n.sub); n.picture = full.picture; n.link = full.link;
   return n;
 }
 function addLink(a, b) {
@@ -359,16 +400,15 @@ async function expand(n) {
   n.exhausted = full || !added;
   if (!added) sfx.nope();
   status(added ? '' : full ? `${n.name} no admite más conexiones` : `${n.name}: sin relacionadas nuevas`);
-  render(); if (n.selected) select(n);  // refresca el botón Explorar del panel
+  render(); if (n.selected) select(n);  // refresca el botón desplegar del pie
   wantFit = true;  // encuadra cuando la simulación se asiente
 }
 
 // ---------- Sonidos (sintetizados con Web Audio, sin archivos) ----------
 const sfx = (() => {
-  let ctx, muted = localStorage.getItem('em-mute') === '1';
+  let ctx;  // sonidos siempre activos
   // Burbuja: seno con barrido rápido de tono (sube = «pop», baja = «bloop» hacia dentro) y caída muy corta
   function bubble(freq, at = 0, ratio = 2.6, dur = 0.13, vol = 0.16) {
-    if (muted) return;
     ctx ??= new AudioContext();
     const f = freq * (0.92 + Math.random() * 0.16);  // variación para que no suenen idénticas
     const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
@@ -380,8 +420,6 @@ const sfx = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
   }
-  const btn = () => { $('mute').textContent = muted ? '🔇' : '🔊'; };
-  queueMicrotask(() => { btn(); $('mute').onclick = () => { muted = !muted; localStorage.setItem('em-mute', muted ? '1' : '0'); btn(); if (!muted) bubble(700); }; });
   return {
     open: n => { for (let i = 0; i < n; i++) bubble(380 + i * 70, i * 0.075 + Math.random() * 0.02); },
     nope: () => bubble(260, 0, 0.55, 0.16, 0.14),
@@ -396,61 +434,214 @@ const ICON = {
   // Iconos simplificados: barras de ecualizador (Deezer) y ondas (Spotify)
   deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
+  explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
+  label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></svg>',
+  clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
-function showPanel(on) { $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on); }
+let selId = null;  // artista seleccionado: el pie actúa sobre él
+// Primer clic selecciona; clic sobre el seleccionado lo amplía y muestra su menú (y otro clic lo cierra)
+function select(n) {
+  nodes.forEach(m => { m.selected = m === n; if (m !== n) m.open = false; });
+  selId = n ? n.id : null;
+  render(); if (window.playerReady) playIcon();
+}
+function clickNode(d) {
+  if (d.selected) { d.open = !d.open; sfx.select(); render(); }
+  else { sfx.select(); select(d); }
+}
+function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); playIcon(); }
 
-async function select(n) {
-  nodes.forEach(m => m.selected = m === n); render();
-  const a = await getArtist(n.id).catch(() => null);
-  if (!a || !n.selected) return;  // si mientras cargaba se deseleccionó, no reabrir la ficha
-  const p = mine(a.name);
-  showPanel(true);
-  $('info').innerHTML = `
-    ${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}
-    <h2>${esc(a.name)}</h2>
-    ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
-    <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
-    ${p ? `<div class="mine">En tu huella</div>` : `<div class="new">Nuevo para ti</div>`}
-    ${a.preview ? `<audio controls src="${esc(a.preview)}" title="${esc(a.previewTitle)}"></audio>` : ''}
-    <div class="row"><button class="primary" id="more" ${degree(n) >= MAX_LINKS ? 'disabled style="opacity:.4;cursor:default"' : ''}>Explorar</button>
-      <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Abrir en Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
-      <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Buscar en Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a>
-      <button class="icon" id="del" title="Quitar (Supr)" aria-label="Quitar del mapa">${ICON.trash}</button></div>`;
-  $('more').onclick = () => expand(n);
-  $('del').onclick = () => removeNode(n);
+const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
+const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
+  { key: 'expand', ang: 155, icon: () => ICON.explore, label: 'Desplegar relacionadas', primary: true,
+    off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
+  { key: 'play', ang: 122, icon: d => isPlaying(d) ? ICON.pause : ICON.play, label: 'Reproducir o pausar', run: d => playToggle(d) },
+  { key: 'next', ang: 90, icon: () => ICON.next, label: 'Siguiente canción', run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'deezer', ang: 58, icon: () => ICON.deezer, label: 'Deezer',
+    run: d => window.open(d.link || 'https://www.deezer.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+  { key: 'spotify', ang: 25, icon: () => ICON.spotify, label: 'Spotify',
+    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+];
+function renderMenus(all) {
+  all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
+    .join(enter => {
+      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
+        .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
+      const pop = g.append('g').attr('class', 'pop');
+      pop.append('circle').attr('class', 'bg').attr('r', 17);
+      pop.append('g').attr('class', 'ico');
+      return g;
+    })
+    .classed('off', o => !!(o.off && o.off(o.d)))
+    .attr('transform', o => {
+      const R = radius(o.d) + 24, a = o.ang * Math.PI / 180;
+      return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
+    })
+    .each(function (o) {
+      const ico = d3.select(this).select('.ico');
+      const html = o.icon(o.d);
+      if (ico.attr('data-html') === html) return;  // solo se repinta si cambia (play ↔ pausa)
+      ico.attr('data-html', html).html(html);
+      ico.select('svg').attr('x', -10).attr('y', -10).attr('width', 20).attr('height', 20);
+    });
 }
 
+// ---------- Preview: un solo reproductor, oculto ----------
+const player = new Audio();
+const tracks = new Map();  // id de artista → promesa con sus canciones (las 10 más escuchadas)
+const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
+let queue = { id: null, list: [], i: 0 };  // artista cargado en el reproductor y su canción
+let playToken = 0;  // solo cuenta la última orden (evita carreras si se pulsa rápido)
+const sounding = () => !!player.src && !player.paused;
+// ¿Está sonando este artista? (marca su círculo)
+function isPlaying(d) { return !!window.playerReady && sounding() && queue.id === d.id; }
+function playIcon() {
+  const nodesSel = gNodes.selectAll('g.node');
+  nodesSel.classed('playing', isPlaying);
+  renderMenus(nodesSel);  // ▶ ↔ ❚❚ en el menú del círculo
+  const f = $('play');  // pie: pausa lo que suene; si no, reproduce el seleccionado (o reanuda)
+  f.innerHTML = sounding() ? ICON.pause : ICON.play; f.setAttribute('aria-pressed', sounding());
+  f.disabled = !sounding() && selId == null && queue.id == null;
+}
+async function load(id, i, play) {
+  const t = ++playToken;
+  const list = await (play ? working(tracksOf(id)) : tracksOf(id));
+  if (t !== playToken) return;  // llegó otra orden mientras tanto
+  if (!list.length) { if (play) flashError(); return; }
+  queue = { id, list, i: (i + list.length) % list.length };
+  player.src = list[queue.i].preview; player.title = list[queue.i].title;
+  if (play) player.play().catch(() => flashError());
+  playIcon();
+}
+// Play/pausa de un artista: si es el que está cargado, pausa o reanuda donde iba; si no, empieza el suyo
+function playToggle(d) {
+  if (queue.id === d.id && player.src) {
+    playToken++;
+    if (sounding()) player.pause(); else player.play().catch(() => flashError());
+    return;
+  }
+  load(d.id, 0, true);
+}
+function togglePlay() {
+  if (sounding()) { playToken++; player.pause(); return; }
+  const n = byId.get(selId);
+  if (n) playToggle(n); else if (queue.id != null) player.play().catch(() => flashError());
+}
+$('play').onclick = togglePlay;
+['play', 'pause', 'ended', 'emptied'].forEach(ev => player.addEventListener(ev, playIcon));
+// Al acabar una canción sigue la siguiente del mismo artista
+player.addEventListener('ended', () => { if (queue.id != null) load(queue.id, queue.i + 1, true); });
+window.playerReady = true;
+playIcon();
+
 async function addOrigin(r) {
-  status(`Cargando ${r.name}…`);
-  const full = await getArtist(r.id).catch(() => null);
-  if (!full) { status(`No se pudo cargar ${r.name}`); return; }
+  const full = await working(getArtist(r.id).catch(() => null));
+  if (!full) { flashError(); return; }
   const n = addFull(full, null, true);
   render(); sfx.join(0); select(n);
-  status('');
 }
 
 // ---------- Interfaz ----------
 let timer;
-$('q').addEventListener('input', e => {
-  clearTimeout(timer);
-  const q = e.target.value.trim();
-  if (q.length < 2) { $('results').innerHTML = ''; return; }
+// Búsqueda con un resultado por artista (Deezer duplica fichas: se queda la de más fans), en orden de relevancia
+async function searchArtists(q) {
+  const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(() => []);
+  const best = new Map();
+  raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
+  return raw.filter(r => best.get(key(r)) === r);
+}
+// Pinta sugerencias de artistas; onPick recibe el elegido
+let suggestions = [];
+function showArtists(res, onPick) {
+  suggestions = res.map(r => () => onPick(r));
+  $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
+    ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}</div></li>`).join('');
+  $('results').querySelectorAll('li').forEach(li => {
+    li.onclick = suggestions[li.dataset.i]; li.onkeydown = ev => ev.key === 'Enter' && suggestions[li.dataset.i]();
+  });
+}
+
+// /from A to B: autocompleta el tramo que se está escribiendo (A antes de «to», B después)
+const picked = new Map();  // nombre exacto elegido → artista, para que el comando use justo ese
+function parseFrom(q) {
+  const m = q.match(/^\/from\s+(.*?)(?:\s+to(?:\s+(.*))?)?$/i);
+  if (!m) return null;
+  return q.match(/\s+to(\s|$)/i) ? { a: m[1].trim(), b: (m[2] || '').trim(), part: 'b' } : { a: m[1].trim(), b: '', part: 'a' };
+}
+function suggestFrom(q) {
+  const f = parseFrom(q);
+  const text = f && f[f.part];
+  if (!text || text.length < 2 || picked.has(text)) { $('results').innerHTML = ''; return; }
   timer = setTimeout(async () => {
-    const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(err => (status(err.message), []));
-    const best = new Map();
-    raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
-    const res = raw.filter(r => best.get(key(r)) === r);
-    $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
-      ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}<br>
-      ${mine(r.name) ? '<small style="color:var(--accent)">en tu huella</small>' : ''}</div></li>`).join('');
-    $('results').querySelectorAll('li').forEach(li => {
-      const go = () => { $('results').innerHTML = ''; $('q').value = ''; pathFrom !== undefined ? pathPick(res[li.dataset.i]) : addOrigin(res[li.dataset.i]); };
-      li.onclick = go; li.onkeydown = ev => ev.key === 'Enter' && go();
+    const res = await searchArtists(text);
+    if ($('q').value.replace(/^\s+/, '') !== q) return;  // el usuario siguió escribiendo
+    showArtists(res, r => {
+      picked.set(r.name, r);
+      $('q').value = f.part === 'a' ? `/from ${r.name} to ` : `/from ${f.a} to ${r.name}`;
+      $('results').innerHTML = ''; $('q').focus(); sfx.select();
     });
   }, 250);
+}
+
+$('q').addEventListener('input', e => {
+  clearTimeout(timer);
+  const q = e.target.value.replace(/^\s+/, '');
+  if (/^\/from\s/i.test(q)) { suggestFrom(q); return; }
+  if (q.startsWith('/')) { showCommands(q.trim()); return; }
+  if (q.trim().length < 2) { $('results').innerHTML = ''; return; }
+  timer = setTimeout(async () => {
+    showArtists(await searchArtists(q.trim()), r => { $('results').innerHTML = ''; $('q').value = ''; addOrigin(r); });
+  }, 250);
 });
-$('q').addEventListener('keydown', e => { if (e.key === 'Enter') $('results').querySelector('li')?.click(); });
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('q').value = ''; $('results').innerHTML = ''; return; }
+  if (e.key === 'Tab' && suggestions.length && $('results').querySelector('li:not(.cmd)')) {  // Tab = aceptar la primera sugerencia
+    e.preventDefault(); suggestions[0](); return;
+  }
+  if (e.key !== 'Enter') return;
+  const v = $('q').value.trim();
+  if (v.startsWith('/')) { $('results').innerHTML = ''; runCommand(v); return; }
+  $('results').querySelector('li')?.click();
+});
+
+// ---------- Comandos ----------
+const COMMANDS = [
+  { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
+  { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
+    run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
+  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
+];
+function showCommands(q) {
+  const word = q.split(/\s+/)[0].toLowerCase();
+  const list = COMMANDS.filter(c => c.fill.trim().startsWith(word));
+  $('results').innerHTML = list.map((c, i) => `<li class="cmd" tabindex="0" data-i="${i}">${c.usage}</li>`).join('');
+  $('results').querySelectorAll('li').forEach(li => li.onclick = () => {
+    $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
+  });
+}
+async function runCommand(v) {
+  for (const c of COMMANDS) {
+    const m = v.match(c.re);
+    if (m) { $('q').value = ''; return c.run(m); }
+  }
+  flashError();
+}
+// Artista por nombre: el elegido en las sugerencias; si no, el de nombre igual; si no, el más relevante
+async function findArtist(name) {
+  if (picked.has(name)) return picked.get(name);
+  const res = await searchArtists(name);
+  return res.find(r => norm(r.name) === norm(name)) || res[0] || null;
+}
+async function pathByNames(a, b) {
+  const [x, y] = await working(Promise.all([findArtist(a), findArtist(b)]));
+  if (!x || !y) { $('q').value = `/from ${a} to ${b}`; flashError(); return; }
+  runPath(x, y);
+}
 
 // Quita una banda y las que solo llegaban al mapa a través de ella (las que siguen unidas a un origen se quedan)
 function removeNode(n) {
@@ -466,7 +657,8 @@ function removeNode(n) {
   links.splice(0, links.length, ...restLinks.filter(l => ends(l).every(id => keep.has(id))));
   byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
   nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
-  showPanel(false); $('tip').style.display = 'none';
+  if (!byId.has(selId)) selId = null;
+  $('tip').style.display = 'none';
   sfx.remove();
   status('');
   render();
@@ -477,152 +669,70 @@ document.addEventListener('keydown', e => {
   if (sel) removeNode(sel);
 });
 
-function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
-$('clear').onclick = () => { listRun++; clearAll(); stack.clear(); };
+function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); if (window.playerReady) playIcon(); }
+$('clear').innerHTML = ICON.clear;
+// ✕ y /clear: mapa vacío y música parada
+function clearEverything() {
+  listRun++; playToken++;
+  player.pause(); player.removeAttribute('src'); player.load();
+  queue = { id: null, list: [], i: 0 };
+  clearAll(); sfx.remove();
+}
+$('clear').onclick = clearEverything;
+function toggleLabels(on = !showLabels) {
+  showLabels = on; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
+  sfx.select();
+  render();
+}
 
-// ---------- Grafo de una lista ----------
-// Cada artista de la lista es un círculo; sus relaciones entre sí se vuelven enlaces
-// (máx. MAX_LINKS por banda, empezando por las más parecidas).
-let listRun = 0;
-// Cola: los datos se descargan de 4 en 4 por detrás, pero los artistas entran al grafo de uno en uno y en orden
+
+// ---------- Indicador de trabajo ----------
+let listRun = 0;  // se incrementa para cancelar una carga en curso
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const stack = {
-  start(names) {
-    const q = $('queue');
-    q.innerHTML = `<div class="head"><b>${names.length}</b>en cola</div>` +
-      names.map((n, i) => `<div class="qi" data-i="${i}" title="${esc(n)}">${esc(n)}</div>`).join('');
-    q.style.display = 'flex';
-    this.left = names.length;
-  },
-  now(i) { $('queue').querySelector(`.qi[data-i="${i}"]`)?.classList.add('now'); },
-  // sale de la pila (ok = entró al grafo; si no, se tacha antes de irse)
-  done(i, ok = true) {
-    const el = $('queue').querySelector(`.qi[data-i="${i}"]`);
-    if (!el) return;
-    el.classList.remove('now');
-    if (!ok) el.classList.add('fail');
-    requestAnimationFrame(() => el.classList.add('out'));
-    setTimeout(() => el.remove(), 700);
-    this.left--;
-    const h = $('queue').querySelector('.head b'); if (h) h.textContent = Math.max(0, this.left);
-  },
-  end() { setTimeout(() => { if (this.left <= 0) $('queue').style.display = 'none'; }, 700); },
-  clear() { this.left = 0; $('queue').style.display = 'none'; $('queue').innerHTML = ''; },
-  get visible() { return $('queue').style.display === 'flex'; },
-};
-
-// Une a n con los miembros de la lista ya presentes, mientras ambos tengan hueco
-function joinList(n, members) {
-  const near = [];
-  for (const m of members) {
-    if (m === n || byId.get(m.id) !== m || linked(n, m)) continue;  // ignora las que se han quitado durante la carga
-    const r1 = n.relOrder.indexOf(key(m)), r2 = m.relOrder?.indexOf(key(n)) ?? -1;
-    if (r1 < 0 && r2 < 0) continue;
-    near.push([Math.min(...[r1, r2].filter(x => x >= 0)), m]);  // rango de parecido: menor = más parecido
-  }
-  near.sort((x, y) => x[0] - y[0]);
-  for (const [, m] of near) if (degree(n) < MAX_LINKS && degree(m) < MAX_LINKS) addLink(n, m);
-  return near.find(([, m]) => linked(n, m))?.[1];
+let busyCount = 0;
+function showBusy() {
+  const b = $('busy');
+  b.classList.toggle('on', busyCount > 0);
+  b.classList.toggle('center', nodes.length === 0);
+  b.classList.toggle('bar', nodes.length > 0);
 }
-
-async function loadList(pl) {
-  const run = ++listRun;
-  clearAll(); autoFit = true;
-  const members = [], names = pl.artists.map(([name]) => name);
-  stack.start(names);
-  // Descarga anticipada (4 a la vez): resolver en Deezer + relacionadas
-  const jobs = new Map();
-  let next = 0;
-  // Ficha completa (género, relacionadas, preview) antes de salir de la cola
-  const fetchOne = async name => {
-    const hit = await api('/api/resolve?name=' + encodeURIComponent(name)).catch(() => null);
-    const full = hit ? await getArtist(hit.id).catch(() => null) : null;
-    return { hit, full };
-  };
-  const worker = async () => { while (next < names.length && run === listRun) { const nm = names[next++]; jobs.get(nm).resolve(await fetchOne(nm)); } };
-  names.forEach(nm => { let resolve; const p = new Promise(r => resolve = r); jobs.set(nm, { p, resolve }); });
-  for (let i = 0; i < 4; i++) worker();
-
-  // Incorporación en orden, una a una
-  for (let i = 0; i < names.length; i++) {
-    if (run !== listRun) return;
-    stack.now(i);
-    const { hit, full } = await jobs.get(names[i]).p;
-    const rel = full ? full.related : [];
-    if (run !== listRun) return;
-    if (!hit || !full) { stack.done(i, false); continue; }  // sin ficha completa no entra al grafo
-    const existed = inMap(hit);
-    if (existed && members.includes(byId.get(hit.id) || byName.get(key(hit)))) { stack.done(i); continue; }  // duplicado dentro de la lista
-    const n = addFull(full, null); n.inList = true; n.listSongs = pl.artists[i][1];  // si ya estaba (p. ej. por doble clic) se reutiliza
-    n.relOrder = rel.map(key); n.related = new Set(rel.flatMap(r => [r.id, key(r)]));
-    const anchorNode = joinList(n, members);
-    members.push(n);
-    // Posición: junto a su banda más parecida ya presente; si no tiene, en la periferia
-    const ang = Math.random() * 2 * Math.PI;
-    if (existed) {}  // ya tiene sitio en el mapa
-    else if (anchorNode) { const d = radius(anchorNode) + radius(n) + 60; n.x = anchorNode.x + d * Math.cos(ang); n.y = anchorNode.y + d * Math.sin(ang); }
-    else { const R = 220 + 6 * Math.sqrt(members.length) * 10; n.x = innerWidth / 2 + R * Math.cos(ang); n.y = innerHeight / 2 + R * Math.sin(ang); }
-    render(); sfx.join(i); stack.done(i);
-    await sleep(names.length > 80 ? 120 : 220);  // ritmo visual: listas grandes, más rápido
-  }
-  stack.end();
-  wantFit = true; sfx.chord();
-  status('');
-  autoFit = false;
+// Envuelve una promesa: mientras haya alguna pendiente, el logo se anima
+async function working(promise) {
+  busyCount++; showBusy();
+  try { return await promise; } finally { busyCount--; showBusy(); }
 }
-api('/api/playlists').then(pls => {
-  $('lists').innerHTML = '<option value="">Mis listas</option>' +
-    pls.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
-  $('lists').onchange = e => { if (e.target.value !== '') loadList(pls[e.target.value]); e.target.blur(); };
-});
 
 // ---------- Camino de x a y ----------
-// Botón «De → a»: el buscador pide primero el origen y luego el destino; el servidor busca la cadena
-// de relacionadas que los une y los artistas entran uno a uno, ya completos, unidos por una línea dorada.
-let pathFrom;  // undefined = modo normal; null = esperando origen; objeto = esperando destino
-const PLACEHOLDER = $('q').placeholder;
-function pathMode(on) {
-  pathFrom = on ? null : undefined;
-  $('pathBtn').classList.toggle('on', on);
-  $('q').placeholder = on ? 'Camino: ¿desde qué artista?' : PLACEHOLDER;
-  if (on) $('q').focus();
-}
-$('pathBtn').onclick = () => pathMode(pathFrom === undefined);
-$('q').addEventListener('keydown', e => { if (e.key === 'Escape' && pathFrom !== undefined) pathMode(false); });
-function pathPick(r) {
-  if (!pathFrom) { pathFrom = r; $('q').placeholder = `Camino: de ${r.name} a…`; $('q').focus(); sfx.select(); return; }
-  const from = pathFrom; pathMode(false); runPath(from, r);
-}
-async function runPath(a, b) {
+// /from A to B: el servidor busca la cadena de relacionadas que los une; los artistas entran uno a uno,
+// ya completos, unidos por una línea dorada.
+function runPath(a, b) { return working(tracePath(a, b)); }
+async function tracePath(a, b) {
   const run = ++listRun;
-  clearAll(); autoFit = true;
-  stack.start([`${a.name} → ${b.name}`]); stack.now(0);
+  clearAll(); autoFit = true; showBusy();
   const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
   if (run !== listRun) return;
-  if (!path) { stack.done(0, false); stack.end(); sfx.nope(); status(`No encuentro un camino entre ${a.name} y ${b.name}`); return; }
+  if (!path) { flashError(); return; }
   const ids = path.map(x => x.id);
-  stack.clear(); stack.start(path.map((x, i) => x.name || (i ? b.name : a.name)));
+  const fulls = ids.map(id => getArtist(id).catch(() => null));  // se descargan en paralelo; entran en orden
   let prev = null;
   for (let i = 0; i < ids.length; i++) {
-    stack.now(i);
-    const full = await getArtist(ids[i]).catch(() => null);
+    const full = await fulls[i];
     if (run !== listRun) return;
-    if (!full) { stack.done(i, false); continue; }
+    if (!full) continue;
     const n = addFull(full, null, i === 0 || i === ids.length - 1);
     // en fila de izquierda a derecha; luego la simulación lo curva a su gusto
     n.x = innerWidth * 0.12 + (innerWidth * 0.6) * i / Math.max(1, ids.length - 1); n.y = innerHeight / 2 + (i % 2 ? 40 : -40);
     if (prev) { addLink(prev, n); links[links.length - 1].path = true; }
     prev = n;
-    render(); sfx.join(i); stack.done(i);
+    render(); sfx.join(i); showBusy();
     await sleep(300);
   }
-  stack.end(); sfx.chord(); wantFit = true;
-  status(`${a.name} → ${b.name}: ${ids.length - 2} artista${ids.length - 2 === 1 ? '' : 's'} de por medio`);
+  sfx.chord(); wantFit = true;
   autoFit = false;
 }
 
-// Clic en el fondo: quita la selección y cierra la ficha (pan/arrastre no cuenta como clic: d3.zoom lo filtra)
-svg.on('click', () => { nodes.forEach(m => m.selected = false); showPanel(false); $('tip').style.display = 'none'; render(); });
+// Clic en el fondo: solo quita el resaltado; la ficha se queda con el último artista
+svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });
 
 // ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
 async function originsFromUrl() {
@@ -633,9 +743,7 @@ async function originsFromUrl() {
   }
 }
 
-api('/api/profile').then(p => { PROFILE = p; render(); })
-  .catch(() => status('No se pudo cargar tu huella de Spotify'))
-  .then(originsFromUrl);
+originsFromUrl();
 render();
 </script>
 </body>
