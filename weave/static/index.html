@@ -90,8 +90,14 @@ button:hover { background: #3a3f49; }
 .opt.primary .ico { color: #111; }
 .opt.off { opacity: .35; cursor: default; }
 .opt.drag { cursor: crosshair; }
-/* línea que se arrastra desde el conector hasta otro círculo */
-.wire { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; pointer-events: none; }
+/* cable suelto del conector: cuelga con comba, se balancea y, conectado, «corre» */
+.cable { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; pointer-events: none; transition: opacity .5s; }
+.cable.live { stroke-dasharray: 10 7; animation: flow .5s linear infinite; }
+.cable.fade { opacity: 0; }
+@keyframes flow { to { stroke-dashoffset: -17; } }
+/* los artistas aparecen con un fundido (los del cable «salen» de él) */
+.node { animation: fadein .5s ease-out; }
+@keyframes fadein { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n, .spin { animation: pulse 1.6s ease-in-out infinite; } }
 
 #tip { position: fixed; pointer-events: none; background: #000c; padding: 6px 9px; border-radius: 6px; font-size: 12px; z-index: 3; display: none; }
@@ -298,7 +304,6 @@ function render() {
   n.exit().remove();
   const e = n.enter().append('g')
     .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })
-    .on('dblclick', (ev, d) => { ev.stopPropagation(); expand(d); })
     .on('mousemove', (ev, d) => showTip(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
     .call(d3.drag()
       .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
@@ -377,7 +382,7 @@ function showTip(ev, d) {
 }
 
 // ---------- Selección y menú del círculo ----------
-// Primer clic selecciona; clic sobre el seleccionado lo amplía con su menú (otro clic lo cierra)
+// Un clic abre el círculo (ampliado, con su menú) y otro clic lo cierra
 function select(n) {
   nodes.forEach(m => { m.selected = m === n; if (m !== n) m.open = false; });
   selId = n ? n.id : null;
@@ -385,7 +390,8 @@ function select(n) {
 }
 function clickNode(d) {
   sfx.select();
-  if (d.selected) { d.open = !d.open; render(); } else select(d);
+  if (d.open) { d.open = false; render(); return; }
+  select(d); d.open = true; render();
 }
 function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); }
 
@@ -427,20 +433,53 @@ function renderMenus(all) {
 // ---------- Conector: arrastrar desde un círculo hasta otro teje el camino entre los dos ----------
 const gWire = root.append('g');
 const nodeAt = p => nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) <= radius(n));
+// El cable es una curva de Bézier con comba hacia abajo que oscila un poco; sus extremos siguen a los círculos
+let cable = null;  // { a, b, born, live, done } — b es un círculo o el puntero
+function cableCtrl(c) {
+  const { a, b } = c, dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+  const sag = len * (0.22 + 0.06 * Math.sin((performance.now() - c.born) / 380));
+  // comba perpendicular al cable (siempre visible), hacia el lado que más «cuelga»
+  let nx = -dy / len, ny = dx / len;
+  if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
+  return [[a.x, a.y], [(a.x + b.x) / 2 + nx * sag, (a.y + b.y) / 2 + ny * sag], [b.x, b.y]];
+}
+function cablePoint(c, t) {  // punto del cable en t ∈ [0, 1]
+  const [p0, p1, p2] = cableCtrl(c), u = 1 - t;
+  return [0, 1].map(k => u * u * p0[k] + 2 * u * t * p1[k] + t * t * p2[k]);
+}
+function drawCable() {
+  if (!cable) { gWire.selectAll('path').remove(); return; }
+  const [p0, p1, p2] = cableCtrl(cable);
+  gWire.selectAll('path').data([0]).join('path')
+    .attr('class', 'cable' + (cable.live ? ' live' : '') + (cable.done ? ' fade' : ''))
+    .attr('d', `M${p0}Q${p1} ${p2}`);
+  requestAnimationFrame(drawCable);
+}
+function startCable(a, b) {
+  const running = !!cable;
+  cable = { a, b, born: performance.now() };
+  if (!running) drawCable();
+}
+function dropCable() {  // se desvanece y desaparece
+  const c = cable;
+  if (!c) return;
+  c.done = true;
+  setTimeout(() => { if (cable === c) cable = null; }, 500);
+}
 const connectDrag = d3.drag()
   .on('start', ev => {
     ev.sourceEvent.stopPropagation();  // no arrastrar el círculo, sino el cable
     const a = ev.subject.d;
-    gWire.append('line').attr('class', 'wire').attr('x1', a.x).attr('y1', a.y).attr('x2', a.x).attr('y2', a.y);
+    startCable(a, { x: a.x, y: a.y });
   })
   .on('drag', ev => {
     const [x, y] = d3.pointer(ev.sourceEvent, root.node());
-    gWire.select('line').attr('x2', x).attr('y2', y);
+    if (cable) cable.b = { x, y };
   })
   .on('end', ev => {
-    gWire.selectAll('line').remove();
     const a = ev.subject.d, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
-    if (!b || b === a) return;  // soltado en el vacío o en sí mismo: no hace nada
+    if (!b || b === a) { dropCable(); return; }  // soltado en el vacío o en sí mismo
+    cable.b = b; cable.live = true;  // conectado: el cable empieza a «correr»
     sfx.select(); connectPath(a, b);
   });
 
@@ -559,8 +598,8 @@ function clearEverything() {
 // /from A to B: el servidor busca la cadena de relacionadas; los artistas entran uno a uno, unidos en dorado
 // Teje un camino: los artistas entran uno a uno (los que ya están se reutilizan), unidos en dorado.
 // place(i, total) da la posición de un artista nuevo; los que ya estaban en el mapa no se mueven.
-async function weavePath(a, b, run, place) {
-  const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
+async function weavePath(a, b, run, place, before = Promise.resolve()) {
+  const [path] = await Promise.all([api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null), before]);
   if (run !== runId) return;
   if (!path) { flashError(); return; }
   const fulls = path.map(x => getArtist(x.id).catch(() => null));  // en paralelo; entran en orden
@@ -587,12 +626,15 @@ async function tracePath(a, b) {
   autoFit = false;
 }
 // Conector: el camino se teje dentro del mapa actual, entre los dos círculos
+// Conector: primero el cable conectado y animado; luego los artistas van saliendo de él, en su punto de la comba
 function connectPath(a, b) {
   const run = ++runId;
-  return working(weavePath(a, b, run, (i, total, prev) => {
-    const t = i / Math.max(1, total - 1), jitter = (i % 2 ? 1 : -1) * 50;  // en la recta entre los dos, en zigzag
-    return { x: a.x + (b.x - a.x) * t + jitter, y: a.y + (b.y - a.y) * t - jitter };
-  }));
+  const c = cable && cable.a === a && cable.b === b ? cable : (startCable(a, b), Object.assign(cable, { live: true }));
+  const place = (i, total) => {
+    const [x, y] = cablePoint(c, i / Math.max(1, total - 1));
+    return { x, y };
+  };
+  return working(weavePath(a, b, run, place, sleep(900)).finally(() => { if (cable === c) dropCable(); }));
 }
 
 // ---------- Terminal ----------

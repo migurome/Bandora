@@ -16,10 +16,11 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 | Acción | Cómo |
 |---|---|
 | Añadir artista | Escríbelo en la barra y elige una sugerencia |
-| Seleccionar / abrir su menú | Clic en el círculo / clic otra vez |
-| Menú del círculo | Desplegar relacionadas · ▶/❚❚ · siguiente canción · Deezer · Spotify |
-| Desplegar relacionadas | Botón amarillo del menú o doble clic (máx. 5 conexiones por artista) |
-| Quitar artista | Supr (se lleva la rama que colgaba de él) |
+| Abrir / cerrar su menú | Clic en el círculo |
+| Menú del círculo | Desplegar relacionadas · conector · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Desplegar relacionadas | Botón amarillo del menú (máx. 5 conexiones por artista) |
+| Conectar dos artistas | Arrastra el conector del menú hasta otro círculo |
+| Quitar artista | Papelera del menú o Supr (se lleva la rama que colgaba de él) |
 | Camino entre artistas | `/from Marea to Michael Jackson` (Tab completa los nombres) |
 | Leyenda y filtro de géneros | `/label on` · `/label off` |
 | Limpiar mapa y parar música | `/clear` o ✕ |
