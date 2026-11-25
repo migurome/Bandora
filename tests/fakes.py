@@ -54,3 +54,19 @@ class FakeMusicBrainz:
     def lookup(self, name):
         self.calls["lookup"] += 1
         return self.data.get(name)
+
+
+class FakeLastFm:
+    """data: {nombre: {"tags": [(etiqueta, peso)], "similar": [{"name", "match"}]}}"""
+
+    def __init__(self, data):
+        self.data = data
+        self.calls = Counter()
+
+    def top_tags(self, name):
+        self.calls["top_tags"] += 1
+        return self.data.get(name, {}).get("tags", [])
+
+    def similar(self, name, limit=30):
+        self.calls["similar"] += 1
+        return self.data.get(name, {}).get("similar", [])[:limit]

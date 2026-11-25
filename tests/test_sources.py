@@ -1,6 +1,6 @@
 import unittest
 
-from weave.sources import Deezer, MusicBrainz, SourceError
+from weave.sources import Deezer, LastFm, MusicBrainz, SourceError
 
 
 class UrlFetcher:
@@ -73,3 +73,26 @@ class DeezerTest(unittest.TestCase):
         self.assertEqual(d.artist(9148), {"id": 9148, "name": "Marea", "fans": 53022, "picture": "m.jpg", "link": "L"})
         self.assertEqual(d.top(9148), {"title": "Corazón de mimbre", "preview": "p.mp3"})
         self.assertEqual(d.album_genres(9148), ["alternativo", "rock"])
+
+
+class LastFmTest(unittest.TestCase):
+    def test_lastfm_top_tags_shape(self):
+        f = UrlFetcher({"artist.gettoptags": {"toptags": {"tag": [{"name": "Rock Urbano", "count": 100}, {"name": "rock", "count": 80}]}}})
+        self.assertEqual(LastFm(f, "k").top_tags("Leño"), [("Rock Urbano", 100), ("rock", 80)])
+        self.assertIn("api_key=k", f.urls[0])
+        self.assertIn("autocorrect=1", f.urls[0])
+
+    def test_lastfm_similar_shape(self):
+        f = UrlFetcher({"artist.getsimilar": {"similarartists": {"artist": [{"name": "La Fuga", "match": "1"},
+                                                                            {"name": "Extremoduro", "match": "0.97"}]}}})
+        self.assertEqual(LastFm(f, "k").similar("Marea"), [{"name": "La Fuga", "match": 1.0}, {"name": "Extremoduro", "match": 0.97}])
+
+    def test_lastfm_unknown_artist_returns_empty(self):
+        f = UrlFetcher({"ws.audioscrobbler.com": {"error": 6, "message": "The artist you supplied could not be found"}})
+        self.assertEqual(LastFm(f, "k").top_tags("Nadie"), [])
+        self.assertEqual(LastFm(f, "k").similar("Nadie"), [])
+
+    def test_lastfm_other_error_raises(self):
+        f = UrlFetcher({"ws.audioscrobbler.com": {"error": 29, "message": "Rate limit exceeded"}})
+        with self.assertRaises(SourceError):
+            LastFm(f, "k").top_tags("Marea")

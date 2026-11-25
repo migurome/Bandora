@@ -1,11 +1,12 @@
 """Clientes de Deezer y MusicBrainz: llamadas y parseo a estructuras simples."""
 import urllib.parse
 
-from .http import DEEZER, MUSICBRAINZ
+from .http import DEEZER, LASTFM, MUSICBRAINZ
 from .text import norm
 
 DZ = "https://api.deezer.com"
 MB = "https://musicbrainz.org/ws/2"
+LFM = "https://ws.audioscrobbler.com/2.0/"
 
 
 class SourceError(Exception):
@@ -69,3 +70,28 @@ class MusicBrainz:
         # Géneros oficiales; si no hay, etiquetas de usuarios (p. ej. «rock urbano»)
         gs = sorted(d.get("genres") or hit.get("tags", []), key=lambda g: -g.get("count", 0))
         return {"mbid": hit["id"], "country": hit.get("country"), "genres": [(g["name"], g.get("count", 0)) for g in gs[:3]]}
+
+
+class LastFm:
+    """Géneros votados por oyentes (etiquetas con peso) y artistas parecidos con nota de 0 a 1."""
+
+    def __init__(self, fetcher, key):
+        self.f, self.key = fetcher, key
+
+    def _get(self, method, name, **extra):
+        q = urllib.parse.urlencode({"method": method, "artist": name, "api_key": self.key, "format": "json",
+                                    "autocorrect": 1, **extra})
+        data = self.f.get_json(f"{LFM}?{q}", LASTFM)
+        if isinstance(data, dict) and "error" in data:
+            if data["error"] == 6:  # el artista no existe en Last.fm: no es un fallo
+                return None
+            raise SourceError(f"Last.fm {method}: {data.get('message')}")
+        return data
+
+    def top_tags(self, name) -> list[tuple[str, int]]:
+        d = self._get("artist.gettoptags", name)
+        return [(t["name"], int(t.get("count", 0))) for t in (d or {}).get("toptags", {}).get("tag", [])]
+
+    def similar(self, name, limit=30) -> list[dict]:
+        d = self._get("artist.getsimilar", name, limit=limit)
+        return [{"name": a["name"], "match": float(a.get("match", 0))} for a in (d or {}).get("similarartists", {}).get("artist", [])]

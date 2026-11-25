@@ -3,6 +3,8 @@ import json
 import re
 from pathlib import Path
 
+from .text import norm
+
 _DATA = json.loads((Path(__file__).with_name("families.json")).read_text(encoding="utf-8"))
 _ROCK_FIRST = re.compile(_DATA["rock_first"])
 FAMILIES = [(f["name"], f["color"], re.compile(f["pattern"]) if f.get("pattern") else None) for f in _DATA["families"]]
@@ -29,3 +31,19 @@ def color_of(family: str) -> str:
 
 def order_of(family: str) -> int:
     return _ORDER.get(family, _ORDER[OTHER])
+
+
+# Etiquetas de Last.fm que no son géneros
+NON_GENRES = {"seen live", "favorites", "favourite", "spanish", "español", "british", "american", "usa", "uk",
+              "female vocalists", "male vocalists", "80s", "90s", "00s", "70s", "60s", "love", "beautiful", "awesome"}
+
+
+def clean_tags(tags, artist_name) -> list[tuple[str, int]]:
+    """Deja solo etiquetas que son géneros reconocibles: fuera las de poco peso, el propio nombre y las genéricas."""
+    out = []
+    for tag, weight in tags:
+        t = tag.lower().strip()
+        if weight < 10 or t in NON_GENRES or norm(t) == norm(artist_name) or family_of(t) == OTHER:
+            continue
+        out.append((t, weight))
+    return out[:5]

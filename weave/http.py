@@ -7,6 +7,7 @@ import urllib.request
 
 DEEZER = "deezer"
 MUSICBRAINZ = "musicbrainz"
+LASTFM = "lastfm"
 UA = "Weave/0.1 (prueba local)"
 ATTEMPTS = 4
 
