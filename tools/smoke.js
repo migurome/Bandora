@@ -36,6 +36,9 @@ setTimeout(async () => {
     const sink = nodes.find(n => n.name !== 'Marea');
     select(sink); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' })); await sleep(300);
     ok('supr', nodes.length === 5);
+    const other = nodes.find(n => n.name !== 'Marea' && n !== sink);
+    select(other); clk(nodeG(other.name)); await sleep(300); clk(opt('remove')); await sleep(300);
+    ok('quitar desde el menú', nodes.length === 4 && !byId.has(other.id));
     clk(document.getElementById('svg')); await sleep(200);
     ok('fondo cierra', !document.querySelector('g.opt') && selId == null);
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));

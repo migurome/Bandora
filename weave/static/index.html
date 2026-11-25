@@ -128,7 +128,7 @@ const api = async url => { const r = await fetch(url); const j = await r.json();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
-  deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
@@ -204,7 +204,7 @@ function addArtist(full, origin = false) {
   if (n) { n.origin ||= origin; return n; }
   // la familia (y su color y orden) la decide el servidor: weave/families.json
   n = { id: full.id, name: full.name, fans: full.fans, sub: full.genres[0], genre: full.family, color: full.color, order: full.familyOrder,
-        picture: full.picture, link: full.link, origin,
+        picture: full.picture, origin,
         x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight / 2 + (Math.random() - .5) * 200 };
   nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
   return n;
@@ -385,8 +385,7 @@ const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
   { key: 'play', ang: 122, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
   { key: 'next', ang: 90, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
-  { key: 'deezer', ang: 58, label: 'Deezer', icon: () => ICON.deezer,
-    run: d => window.open(d.link || 'https://www.deezer.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+  { key: 'remove', ang: 58, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
   { key: 'spotify', ang: 25, label: 'Spotify', icon: () => ICON.spotify,
     run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
 ];
