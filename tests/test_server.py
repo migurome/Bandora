@@ -1,18 +1,12 @@
-import importlib.util
 import json
 import threading
 import unittest
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
-from pathlib import Path
 
 from tests.test_ingest import world
-
-ROOT = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location("poc_server", ROOT / "poc" / "server.py")
-server = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(server)
+from weave import server
 
 API_KEYS = {"id", "name", "fans", "picture", "link", "genres", "country", "preview", "previewTitle", "related", "level"}
 
@@ -29,7 +23,7 @@ class Offline:
 class ServerTest(unittest.TestCase):
     def setUp(self):
         self.store, self.dz, self.mb, self.ing = world()
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.make_app(self.store, self.ing, profile={}, playlists=[]))
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.make_app(self.store, self.ing))
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
         self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
 
@@ -57,12 +51,20 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([r["name"] for r in res], ["B.B. King"])
         self.assertEqual(self.store.by_source("deezer", 3614), res[0]["id"])  # id interno, no el de Deezer
 
-    def test_resolve_and_related_endpoints(self):
-        hit = self.get("/api/resolve?name=Platero%20Y%20Tu")
-        self.assertEqual(hit["name"], "Platero y tú")
-        marea = self.store.upsert_deezer(9148, "Marea")
-        self.assertEqual([r["name"] for r in self.get(f"/api/related/{marea}")][:2], ["Extremoduro", "Platero y tú"])
-        self.assertIsNone(self.get("/api/resolve?name=Nadie%20Existe"))
+    def test_top_tracks_endpoint(self):
+        self.dz.artists[9148]["tracks"] = [{"title": "Corazón de mimbre", "preview": "a.mp3"},
+                                           {"title": "La luna me sabe a poco", "preview": "b.mp3"}]
+        aid = self.store.upsert_deezer(9148, "Marea")
+        self.assertEqual([t["title"] for t in self.get(f"/api/top/{aid}")], ["Corazón de mimbre", "La luna me sabe a poco"])
+
+    def test_top_tracks_unknown_artist_is_404(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            self.get("/api/top/99999")
+        self.assertEqual(cm.exception.code, 404)
+
+    def test_page_is_served(self):
+        with urllib.request.urlopen(self.base + "/", timeout=10) as r:
+            self.assertIn("<title>Weave</title>", r.read().decode("utf-8"))
 
     def test_path_endpoint_offline(self):
         ids = {n: self.store.upsert_deezer(n, name) for n, name in
@@ -73,9 +75,3 @@ class ServerTest(unittest.TestCase):
         self.ing.dz = self.ing.mb = Offline()
         path = self.get(f"/api/path?from={ids[1]}&to={ids[4]}")
         self.assertEqual([p["name"] for p in path], ["Marea", "Extremoduro", "Fito y Fitipaldis", "Michael Jackson"])
-
-    def test_expired_preview_is_refreshed(self):
-        aid = self.ing.ensure_full(self.store.upsert_deezer(9148, "Marea"))
-        self.store.set_details(aid, preview="https://cdn/old.mp3?hdnea=exp=100~acl=/x")
-        self.dz.artists[9148]["top"] = {"title": "Corazón de mimbre", "preview": "https://cdn/new.mp3?hdnea=exp=9999999999~acl=/x"}
-        self.assertEqual(self.get(f"/api/artist/{aid}")["preview"], "https://cdn/new.mp3?hdnea=exp=9999999999~acl=/x")

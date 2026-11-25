@@ -1,9 +1,7 @@
 """Ingesta: completa artistas bajo demanda desde Deezer y MusicBrainz; semilla, rastreo reanudable y CLI."""
 import argparse
 import json
-import re
 import sys
-import time
 from collections import Counter
 from pathlib import Path
 
@@ -68,18 +66,9 @@ class Ingestor:
         self.store.set_level(artist_id, FULL)
         return artist_id
 
-    def refresh_preview(self, artist_id: int, now=None) -> None:
-        """Las URLs de preview de Deezer caducan (…hdnea=exp=<epoch>…): si la guardada ha caducado, pide otra."""
-        a = self.store.artist(artist_id)
-        m = re.search(r"exp=(\d+)", (a or {}).get("preview") or "")
-        if not m or int(m.group(1)) > (now or time.time()) + 300:
-            return
-        try:
-            top = self.dz.top(self._deezer_id(artist_id))
-        except (SourceError, OSError):
-            return  # sin red: se queda la antigua; la página simplemente no podrá reproducirla
-        if top and top.get("preview"):
-            self.store.set_details(artist_id, preview=top["preview"], preview_title=top["title"])
+    def top_tracks(self, artist_id: int) -> list[dict]:
+        """Canciones con preview, siempre en vivo: las URLs de preview de Deezer caducan."""
+        return self.dz.top_tracks(self._deezer_id(artist_id))
 
     def resolve_name(self, name: str) -> int | None:
         k = norm(name)

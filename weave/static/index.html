@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weave</title>
+<link rel="icon" href="/weave-icon.svg" type="image/svg+xml">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+#svg { display: block; width: 100vw; height: 100vh; cursor: grab; }
+#svg:active { cursor: grabbing; }
+button { background: var(--line); color: var(--text); border: 0; font: inherit; cursor: pointer; }
+button:hover { background: #3a3f49; }
+
+/* Terminal: artistas y comandos (/from A to B, /label on|off, /clear) */
+.ui { position: fixed; top: 12px; left: 16px; right: 16px; z-index: 3; }
+.ui .bar { position: relative; }
+.ui .bar::before { content: '›'; position: absolute; left: 16px; top: 50%; transform: translateY(-52%); color: var(--accent); font-size: 22px; pointer-events: none; }
+#q { width: 100%; padding: 12px 16px 12px 38px; font: 16px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text);
+     background: var(--panel); border: 1px solid var(--line); border-radius: 999px; }
+#q:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#q.err { border-color: #e5484d; animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+#results { position: absolute; left: 0; right: 0; max-width: 520px; list-style: none; margin: 6px 0 0; padding: 4px;
+           background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+#results:empty { display: none; }
+#results li { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 6px; cursor: pointer; }
+#results li:hover, #results li:focus { background: var(--line); outline: none; }
+#results img { width: 32px; height: 32px; border-radius: 50%; }
+#results li.cmd { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--muted); }
+#results li.cmd b { color: var(--accent); font-weight: 600; }
+
+/* Pie: play/pausa y limpiar */
+#foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2; }
+.icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; vertical-align: middle; }
+.icon svg { width: 20px; height: 20px; }
+#foot button:disabled { opacity: .35; cursor: default; }
+#foot button[aria-pressed="true"] { background: var(--accent); color: #111; }
+
+/* Leyenda de géneros = filtro (/label on) */
+#legend { position: fixed; left: 16px; bottom: 16px; z-index: 2; font-size: 12px; max-width: 320px; }
+#legend button { background: none; padding: 2px 6px; margin: 0 4px 2px 0; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; font-size: 12px; }
+#legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
+#legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
+#busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
+#busy.on { display: block; }
+#busy svg { width: 100%; height: 100%; }
+#busy.center { left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); }
+#busy.bar { top: 17px; right: 30px; width: 38px; height: 38px; }
+#busy .thread { stroke-dasharray: 26 14; animation: weave 1.2s linear infinite; }
+#busy .n { animation: beat 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+#busy .n:nth-of-type(2) { animation-delay: .15s; } #busy .n:nth-of-type(3) { animation-delay: .3s; }
+#busy .n:nth-of-type(4) { animation-delay: .45s; } #busy .n:nth-of-type(5) { animation-delay: .6s; }
+@keyframes weave { to { stroke-dashoffset: -40; } }
+@keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
+@keyframes pulse { 50% { opacity: .3; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pop { from { opacity: 0; transform: scale(.4); } }
+
+/* Grafo */
+.link { stroke: #4a5060; stroke-opacity: .7; }
+.link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
+.node { cursor: pointer; }
+.node, .link { transition: opacity .25s; }
+.node.off { opacity: .07; pointer-events: none; }
+.link.off { opacity: .04; }
+.node text { pointer-events: none; user-select: none; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.node .dot, .node clipPath circle { transition: r .2s; }
+.node .pic { transition: filter .3s; }
+/* arco que gira mientras se buscan las relacionadas */
+.spin { fill: none; stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-box: fill-box; transform-origin: center; animation: spin 1.1s linear infinite; }
+/* artista sonando: foto apagada y ▶ encima */
+.node.playing .pic { filter: brightness(.4); }
+.node .playmark { fill: #fff; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.node.playing .playmark { opacity: .95; animation: pulse 1.6s ease-in-out infinite; }
+/* menú del círculo ampliado */
+.opt { cursor: pointer; }
+.opt .pop { animation: pop .18s ease-out; transform-box: fill-box; transform-origin: center; }  /* grupo interior: no pisa la posición */
+.opt .bg { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.opt:hover .bg { stroke: var(--accent); }
+.opt.primary .bg { fill: var(--accent); stroke: var(--accent); }
+.opt .ico { color: var(--text); pointer-events: none; }
+.opt.primary .ico { color: #111; }
+.opt.off { opacity: .35; cursor: default; }
+@media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n, .spin { animation: pulse 1.6s ease-in-out infinite; } }
+
+#tip { position: fixed; pointer-events: none; background: #000c; padding: 6px 9px; border-radius: 6px; font-size: 12px; z-index: 3; display: none; }
+</style>
+</head>
+<body>
+<div class="ui">
+  <div class="bar"><input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /label, /clear)"></div>
+  <ul id="results"></ul>
+</div>
+<div id="legend"></div>
+<div id="busy" role="status" aria-label="Cargando">
+  <svg viewBox="0 0 128 128">
+    <g stroke-linecap="round" fill="none" stroke-width="5">
+      <line x1="22" y1="34" x2="43" y2="94" stroke="#a3c9f5"/><line x1="43" y1="94" x2="64" y2="50" stroke="#c9bbf6"/>
+      <line x1="64" y1="50" x2="85" y2="94" stroke="#b5e3a1"/><line x1="85" y1="94" x2="106" y2="34" stroke="#f5a3a3"/>
+      <path class="thread" d="M6 70 C 26 84, 40 64, 64 76 S 102 66, 122 78" stroke="#f2c94c" stroke-width="4.5"/>
+    </g>
+    <g stroke="#0f1115" stroke-width="3">
+      <circle class="n" cx="22" cy="34" r="11" fill="#a3c9f5"/><circle class="n" cx="43" cy="94" r="11" fill="#c9bbf6"/>
+      <circle class="n" cx="64" cy="50" r="13" fill="#b5e3a1"/><circle class="n" cx="85" cy="94" r="11" fill="#f5a3a3"/>
+      <circle class="n" cx="106" cy="34" r="11" fill="#9de3d0"/>
+    </g>
+  </svg>
+</div>
+<div id="foot">
+  <button id="play" class="icon" aria-label="Reproducir o pausar"></button>
+  <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
+</div>
+<div id="tip"></div>
+<svg id="svg"></svg>
+
+<script>
+// ---------- Utilidades ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+const api = async url => { const r = await fetch(url); const j = await r.json(); if (j && j.error) throw new Error(j.error); return j; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const ICON = {
+  deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
+  spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
+  explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
+  clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+};
+
+// ---------- Sonidos de burbuja (Web Audio, sin archivos) ----------
+const sfx = (() => {
+  let ctx;
+  // seno con barrido rápido de tono (sube = «pop», baja = «bloop») y caída muy corta
+  function bubble(freq, at = 0, ratio = 2.6, dur = 0.13, vol = 0.16) {
+    ctx ??= new AudioContext();
+    const f = freq * (0.92 + Math.random() * 0.16);  // variación para que no suenen idénticas
+    const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * ratio, t + dur * 0.55);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  return {
+    nope: () => bubble(260, 0, 0.55, 0.16, 0.14),
+    remove: () => { bubble(700, 0, 0.35, 0.16); bubble(520, 0.07, 0.35, 0.16, 0.1); bubble(380, 0.14, 0.35, 0.18, 0.08); },
+    select: () => bubble(900, 0, 1.8, 0.07, 0.09),
+    join: i => bubble(420 + (i % 7) * 60, 0, 2.2, 0.09, 0.07),
+    chord: () => { for (let i = 0; i < 7; i++) bubble(300 + i * 90, i * 0.06 + Math.random() * 0.03, 2.4, 0.12, 0.12); },
+  };
+})();
+
+function flashError() {
+  const q = $('q'); q.classList.remove('err'); void q.offsetWidth; q.classList.add('err'); sfx.nope();
+  setTimeout(() => q.classList.remove('err'), 900);
+}
+
+// ---------- Logo de carga ----------
+let busyCount = 0;
+function showBusy() {
+  const b = $('busy');
+  b.classList.toggle('on', busyCount > 0);
+  b.classList.toggle('center', nodes.length === 0);
+  b.classList.toggle('bar', nodes.length > 0);
+}
+// Mientras haya alguna promesa envuelta pendiente, el logo se anima
+async function working(promise) {
+  busyCount++; showBusy();
+  try { return await promise; } finally { busyCount--; showBusy(); }
+}
+
+// ---------- Géneros: familias con color pastel fijo ----------
+const FAMILIES = [  // la primera regla que encaja gana
+  ['Metal', /metal|grindcore|thrash|doom/, '#f5a9c8'],
+  ['Hip hop', /hip ?hop|rap|trap|drill|grime/, '#f3c6a5'],
+  ['Electrónica', /electr|house|techno|trance|edm|dubstep|drum and bass|ambient|synth|^dance$|idm/, '#9de3d0'],
+  ['Latina / Flamenco', /latin|flamenco|rumba|salsa|reggaet|cumbia|bachata|merengue|tango|bolero|ranchera|copla|son cubano/, '#f5a3a3'],
+  ['Soul / Funk / Jazz / Blues', /soul|funk|r&b|rhythm and blues|disco|jazz|blues|gospel|motown|swing/, '#c9bbf6'],
+  ['Pop', /pop|cantautor|singer-songwriter|chanson|schlager|variété/, '#b5e3a1'],
+  ['Rock', /rock|punk|grunge|indie|alternativ|britpop|emo|garage|shoegaze|post-|psychedel/, '#a3c9f5'],
+];
+const genreColor = new Map(FAMILIES.map(([f, , c]) => [f, c]).concat([['Otros', '#c0c6cf']]));
+// "blues rock", "pop rock", "hard rock"… son rock antes que su prefijo
+const family = g => /rock$|rock and roll|rock urbano/.test(g) ? 'Rock' : (FAMILIES.find(([, re]) => re.test(g)) || ['Otros'])[0];
+const colorOf = g => genreColor.get(g) || genreColor.get(family(g));  // acepta familia («Rock») o género («hard rock»)
+
+// ---------- Estado del grafo ----------
+const MAX_LINKS = 5;
+const nodes = [], links = [], byId = new Map(), byName = new Map(), artistCache = new Map();
+// Clave por nombre normalizado: Deezer duplica fichas ("B.B. King" / "B.B.King") con distinto id
+const key = a => norm(a.name) || 'id' + a.id;
+const inMap = a => byId.has(a.id) || byName.has(key(a));
+const ends = l => [l.source.id ?? l.source, l.target.id ?? l.target];
+const degree = n => links.filter(l => ends(l).includes(n.id)).length;
+const linked = (a, b) => links.some(l => { const [s, t] = ends(l); return s === a.id && t === b.id || s === b.id && t === a.id; });
+const hidden = new Set();  // familias ocultas por el filtro de la leyenda
+let showLabels = localStorage.getItem('weave-labels') === '1';  // leyenda de géneros
+let selId = null;  // artista seleccionado: el pie actúa sobre él
+
+const getArtist = id => {
+  if (!artistCache.has(id)) artistCache.set(id, api('/api/artist/' + id).catch(e => { artistCache.delete(id); throw e; }));
+  return artistCache.get(id);
+};
+// Solo entran al grafo artistas con su ficha completa
+function addArtist(full, origin = false) {
+  let n = byId.get(full.id) || byName.get(key(full));
+  if (n) { n.origin ||= origin; return n; }
+  n = { id: full.id, name: full.name, fans: full.fans, sub: full.genres[0], genre: family(full.genres[0]),
+        picture: full.picture, link: full.link, origin,
+        x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight / 2 + (Math.random() - .5) * 200 };
+  nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
+  return n;
+}
+function addLink(a, b, path = false) { if (!linked(a, b)) links.push({ source: a, target: b, path }); }
+
+// ---------- Dibujo ----------
+const svg = d3.select('#svg');
+const root = svg.append('g');
+const gLinks = root.append('g'), gNodes = root.append('g');
+let k = 1;
+let wantFit = false, autoFit = false;  // autoFit: reencuadrar mientras se traza un camino, hasta que el usuario mueva el mapa
+const zoom = d3.zoom().scaleExtent([0.08, 4]).on('zoom', e => {
+  if (e.sourceEvent) autoFit = false;
+  root.attr('transform', e.transform);
+  k = e.transform.k;
+  gNodes.selectAll('text').attr('display', k < 0.6 ? 'none' : null);  // muy alejado, sin nombres
+});
+svg.call(zoom).on('dblclick.zoom', null);
+
+function radius(d) {
+  const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2) + (d.origin ? 8 : 0);
+  const r = Math.max(base + 6, 26);
+  return d.open ? r * 1.8 : r;  // ampliado con su menú
+}
+// Cada familia tiene un ancla en un círculo grande: acerca entre sí las bandas del mismo estilo
+function anchor(d) {
+  const present = new Set(nodes.map(n => n.genre));
+  const list = [...genreColor.keys()].filter(g => present.has(g));
+  const i = Math.max(0, list.indexOf(d.genre)), n = Math.max(list.length, 1);
+  const R = n === 1 ? 0 : 140 + 30 * n;
+  return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
+}
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d => d.id).distance(l => radius(l.source) + radius(l.target) + 70).strength(0.6))
+  .force('charge', d3.forceManyBody().strength(d => -300 - 8 * radius(d)).distanceMax(700))
+  .force('collide', d3.forceCollide(d => radius(d) + 26).strength(1))  // hueco para el nombre bajo la foto
+  .force('gx', d3.forceX(d => anchor(d).x).strength(0.012))
+  .force('gy', d3.forceY(d => anchor(d).y).strength(0.012))
+  .force('cx', d3.forceX(() => innerWidth / 2).strength(0.008))  // las bandas sueltas no se alejan sin fin
+  .force('cy', d3.forceY(() => innerHeight / 2).strength(0.012))
+  .on('tick', () => {
+    gLinks.selectAll('line').attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    gNodes.selectAll('g.node').attr('transform', d => `translate(${d.x},${d.y})`);
+  })
+  .on('end', () => { if (wantFit || autoFit) { wantFit = false; fitIfNeeded(); } });
+setInterval(() => { if (autoFit) fitIfNeeded(); }, 2000);
+
+// Nombre bajo la foto: hasta 2 líneas equilibradas
+const ctx2d = document.createElement('canvas').getContext('2d');
+const LINE_H = 12;
+function nameLines(d) {
+  if (d._lines && d._lines.origin === d.origin) return d._lines;
+  const font = d.origin ? 'bold 12px system-ui, sans-serif' : '11px system-ui, sans-serif';
+  ctx2d.font = font;
+  const w = t => ctx2d.measureText(t).width;
+  const words = d.name.split(/\s+/);
+  let lines = [d.name];
+  if (words.length > 1 && w(d.name) > 70) {  // parte por la palabra que mejor equilibra las dos líneas
+    let best = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+      if (Math.max(w(a), w(b)) < best) { best = Math.max(w(a), w(b)); lines = [a, b]; }
+    }
+  }
+  return d._lines = { lines, font, origin: d.origin };
+}
+
+function render() {
+  const l = gLinks.selectAll('line').data(links, d => d.source.id + '-' + d.target.id);
+  l.exit().remove();
+  l.enter().append('line').merge(l)
+    .attr('class', d => 'link' + (d.path ? ' path' : '') + (hidden.has(d.source.genre) || hidden.has(d.target.genre) ? ' off' : ''));
+
+  const n = gNodes.selectAll('g.node').data(nodes, d => d.id);
+  n.exit().remove();
+  const e = n.enter().append('g')
+    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })
+    .on('dblclick', (ev, d) => { ev.stopPropagation(); expand(d); })
+    .on('mousemove', (ev, d) => showTip(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
+    .call(d3.drag()
+      .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+      .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  e.append('circle').attr('class', 'ring');
+  e.append('circle').attr('class', 'spin');
+  e.append('circle').attr('class', 'dot');
+  e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');  // recorte circular de la foto
+  e.append('image').attr('class', 'pic').attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', d => `url(#clip${d.id})`);
+  e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
+  e.append('text').attr('text-anchor', 'middle');
+
+  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
+  all.select('clipPath circle').attr('r', radius);
+  all.select('.pic').attr('href', d => d.picture || null)
+    .attr('x', d => -radius(d)).attr('y', d => -radius(d)).attr('width', d => 2 * radius(d)).attr('height', d => 2 * radius(d));
+  // el color de la familia es el aro de la foto; blanco si está seleccionado
+  all.select('.dot').attr('r', radius).attr('fill', d => colorOf(d.genre))
+    .attr('stroke', d => d.selected ? '#fff' : colorOf(d.genre)).attr('stroke-width', d => d.selected ? 3 : 4);
+  // aro punteado = ya no admite más conexiones
+  all.select('.ring').attr('r', d => radius(d) + 4).attr('fill', 'none')
+    .attr('stroke', d => d.exhausted ? 'var(--muted)' : 'none').attr('stroke-width', 2).attr('stroke-dasharray', '2 3');
+  all.select('.spin').attr('r', d => radius(d) + 8)
+    .attr('stroke-dasharray', d => { const c = 2 * Math.PI * (radius(d) + 8); return `${c * 0.28} ${c}`; })
+    .attr('display', d => d.loading ? null : 'none');
+  all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
+  all.select('text').each(function (d) {
+    const L = nameLines(d);
+    d3.select(this).style('font', L.font).attr('display', k < 0.6 ? 'none' : null)
+      .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
+      // debajo del círculo; encima mientras está ampliado (el menú ocupa la parte de abajo)
+      .attr('dy', (t, i) => i > 0 ? LINE_H : d.open ? -(radius(d) + 10) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
+      .text(t => t);
+  });
+  renderMenus(all);
+
+  sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
+  renderLegend();
+  playIcon();
+}
+
+// Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más de 1.2× ni alejar de 0.6×)
+function fitIfNeeded() {
+  if (!nodes.length) return;
+  const t = d3.zoomTransform(svg.node()), m = 20;
+  const x0 = d3.min(nodes, d => d.x - radius(d)), x1 = d3.max(nodes, d => d.x + radius(d));
+  const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
+  const out = nodes.some(d => {
+    const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;
+    return sx - r < m || sx + r > innerWidth - m || sy - r < 70 || sy + r > innerHeight - 90;
+  });
+  if (!out) return;
+  const w = innerWidth - 2 * m, h = innerHeight - 180;  // deja libres la barra y el pie
+  const s = Math.max(0.6, Math.min(1.2, 0.9 * Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80))));
+  svg.transition().duration(700).call(zoom.transform,
+    d3.zoomIdentity.translate(m + w / 2, 80 + h / 2).scale(s).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
+}
+
+// Leyenda = filtro: pulsar una familia la oculta o la muestra
+function renderLegend() {
+  $('legend').style.display = showLabels ? '' : 'none';
+  const present = new Set(nodes.map(d => d.genre));
+  $('legend').innerHTML = [...genreColor].filter(([g]) => present.has(g)).map(([g, c]) =>
+    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${c}"></i>${esc(g)}</button>`).join('');
+  $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
+  });
+}
+function toggleLabels(on = !showLabels) {
+  showLabels = on; localStorage.setItem('weave-labels', on ? '1' : '0'); sfx.select(); render();
+}
+
+function showTip(ev, d) {
+  $('tip').innerHTML = `<b>${esc(d.name)}</b><br>${esc(d.sub || d.genre)}`;
+  Object.assign($('tip').style, { display: 'block', left: ev.clientX + 14 + 'px', top: ev.clientY + 14 + 'px' });
+}
+
+// ---------- Selección y menú del círculo ----------
+// Primer clic selecciona; clic sobre el seleccionado lo amplía con su menú (otro clic lo cierra)
+function select(n) {
+  nodes.forEach(m => { m.selected = m === n; if (m !== n) m.open = false; });
+  selId = n ? n.id : null;
+  render();
+}
+function clickNode(d) {
+  sfx.select();
+  if (d.selected) { d.open = !d.open; render(); } else select(d);
+}
+function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); }
+
+const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
+const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
+  { key: 'expand', ang: 155, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
+    off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
+  { key: 'play', ang: 122, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
+  { key: 'next', ang: 90, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'deezer', ang: 58, label: 'Deezer', icon: () => ICON.deezer,
+    run: d => window.open(d.link || 'https://www.deezer.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+  { key: 'spotify', ang: 25, label: 'Spotify', icon: () => ICON.spotify,
+    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+];
+function renderMenus(all) {
+  all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
+    .join(enter => {
+      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
+        .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
+      const pop = g.append('g').attr('class', 'pop');
+      pop.append('circle').attr('class', 'bg').attr('r', 17);
+      pop.append('g').attr('class', 'ico');
+      return g;
+    })
+    .classed('off', o => !!(o.off && o.off(o.d)))
+    .attr('transform', o => {
+      const R = radius(o.d) + 24, a = o.ang * Math.PI / 180;
+      return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
+    })
+    .each(function (o) {
+      const ico = d3.select(this).select('.ico'), html = o.icon(o.d);
+      if (ico.attr('data-html') === html) return;  // solo se repinta si cambia (▶ ↔ ❚❚)
+      ico.attr('data-html', html).html(html);
+      ico.select('svg').attr('x', -10).attr('y', -10).attr('width', 20).attr('height', 20);
+    });
+}
+
+// ---------- Explorar ----------
+// Reparte las bandas nuevas en abanico hacia fuera (lejos de quien trajo a esa banda)
+function fanAngles(n, count) {
+  const out = n.parent ? Math.atan2(n.y - n.parent.y, n.x - n.parent.x) : -Math.PI / 2;
+  const arc = n.parent ? Math.PI * 1.2 : 2 * Math.PI;
+  return Array.from({ length: count }, (_, i) => n.parent ? out - arc / 2 + arc * (i + 0.5) / count : out + arc * i / count);
+}
+async function expand(n) {
+  if (n.loading) return;
+  select(n);
+  n.loading = true; render();
+  const a = await getArtist(n.id).catch(() => null);
+  if (!a) { n.loading = false; flashError(); render(); return; }
+  const picks = a.related.filter(r => !inMap(r)).slice(0, Math.max(0, MAX_LINKS - degree(n)));
+  const angles = fanAngles(n, picks.length);
+  const fulls = picks.map(r => getArtist(r.id).catch(() => null));  // en paralelo; entran en orden y ya completas
+  let added = 0;
+  for (let i = 0; i < picks.length; i++) {
+    const full = await fulls[i];
+    if (!byId.has(n.id)) break;  // la quitaron mientras cargaba
+    if (!full || inMap(full) || degree(n) >= MAX_LINKS) continue;
+    const c = addArtist(full); c.parent = n;
+    const dist = radius(n) + radius(c) + 70;
+    c.x = n.x + dist * Math.cos(angles[i]); c.y = n.y + dist * Math.sin(angles[i]);
+    addLink(n, c); added++;
+    render(); sfx.join(i);
+  }
+  n.loading = false;
+  n.exhausted = degree(n) >= MAX_LINKS || !added;
+  if (!added) sfx.nope();
+  render();
+  wantFit = true;
+}
+
+// Quita una banda y las que solo llegaban al mapa a través de ella (las que siguen unidas a un origen se quedan)
+function removeNode(n) {
+  if (!byId.has(n.id)) return;
+  const rest = nodes.filter(m => m !== n);
+  const restLinks = links.filter(l => !ends(l).includes(n.id));
+  const adj = new Map(rest.map(m => [m.id, []]));
+  restLinks.forEach(l => { const [s, t] = ends(l); adj.get(s).push(t); adj.get(t).push(s); });
+  const keep = new Set(rest.filter(m => m.origin).map(m => m.id)), todo = [...keep];
+  while (todo.length) for (const id of adj.get(todo.pop())) if (!keep.has(id)) { keep.add(id); todo.push(id); }
+  nodes.splice(0, nodes.length, ...rest.filter(m => keep.has(m.id)));
+  links.splice(0, links.length, ...restLinks.filter(l => ends(l).every(id => keep.has(id))));
+  byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
+  nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
+  if (!byId.has(selId)) selId = null;
+  $('tip').style.display = 'none';
+  sfx.remove();
+  render();
+}
+
+// ---------- Reproductor: un solo audio oculto, canciones del artista en vivo ----------
+const player = new Audio();
+const tracks = new Map();  // id → promesa con sus 10 canciones más escuchadas
+const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
+let queue = { id: null, list: [], i: 0 };  // artista cargado y su canción
+let playToken = 0;  // solo cuenta la última orden (evita carreras si se pulsa rápido)
+// Interrumpir una reproducción (pausa o cambio de canción) no es un error: el navegador lo cancela con AbortError
+const playSafe = () => player.play().catch(e => { if (e.name !== 'AbortError') flashError(); });
+const sounding = () => !!player.src && !player.paused;
+const isPlaying = d => sounding() && queue.id === d.id;
+function playIcon() {
+  const all = gNodes.selectAll('g.node');
+  all.classed('playing', isPlaying);
+  renderMenus(all);
+  const f = $('play');  // pie: pausa lo que suene; si no, reproduce el seleccionado (o reanuda)
+  f.innerHTML = sounding() ? ICON.pause : ICON.play;
+  f.setAttribute('aria-pressed', sounding());
+  f.disabled = !sounding() && selId == null && queue.id == null;
+}
+async function load(id, i, play) {
+  const t = ++playToken;
+  const list = await working(tracksOf(id));
+  if (t !== playToken) return;
+  if (!list.length) { flashError(); return; }
+  queue = { id, list, i: (i + list.length) % list.length };
+  player.src = list[queue.i].preview; player.title = list[queue.i].title;
+  if (play) playSafe();
+  playIcon();
+}
+// Si es el artista cargado, pausa o reanuda donde iba; si no, empieza el suyo
+function playToggle(d) {
+  if (queue.id !== d.id || !player.src) return load(d.id, 0, true);
+  playToken++;
+  if (sounding()) player.pause(); else playSafe();
+}
+function footPlay() {
+  if (sounding()) { playToken++; player.pause(); return; }
+  const n = byId.get(selId);
+  if (n) playToggle(n); else if (queue.id != null) playSafe();
+}
+['play', 'pause', 'ended', 'emptied'].forEach(ev => player.addEventListener(ev, playIcon));
+player.addEventListener('ended', () => { if (queue.id != null) load(queue.id, queue.i + 1, true); });  // sigue con la siguiente
+
+// ---------- Mapa: añadir, limpiar, caminos ----------
+let runId = 0;  // se incrementa para cancelar un camino en curso
+async function addOrigin(r) {
+  const full = await working(getArtist(r.id).catch(() => null));
+  if (!full) { flashError(); return; }
+  const n = addArtist(full, true);
+  sfx.join(0); select(n);
+}
+function clearMap() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); }
+// ✕ y /clear: mapa vacío y música parada
+function clearEverything() {
+  runId++; playToken++;
+  player.pause(); player.removeAttribute('src'); player.load();
+  queue = { id: null, list: [], i: 0 };
+  clearMap(); sfx.remove();
+}
+// /from A to B: el servidor busca la cadena de relacionadas; los artistas entran uno a uno, unidos en dorado
+async function tracePath(a, b) {
+  const run = ++runId;
+  clearMap(); autoFit = true; showBusy();
+  const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
+  if (run !== runId) return;
+  if (!path) { flashError(); return; }
+  const fulls = path.map(x => getArtist(x.id).catch(() => null));  // en paralelo; entran en orden
+  let prev = null;
+  for (let i = 0; i < path.length; i++) {
+    const full = await fulls[i];
+    if (run !== runId) return;
+    if (!full) continue;
+    const n = addArtist(full, i === 0 || i === path.length - 1);
+    n.x = innerWidth * 0.12 + innerWidth * 0.6 * i / Math.max(1, path.length - 1); n.y = innerHeight / 2 + (i % 2 ? 40 : -40);
+    if (prev) addLink(prev, n, true);
+    prev = n;
+    render(); sfx.join(i); showBusy();
+    await sleep(300);
+  }
+  sfx.chord(); wantFit = true; autoFit = false;
+}
+
+// ---------- Terminal ----------
+// Un resultado por artista (Deezer duplica fichas: se queda la de más fans), en orden de relevancia
+async function searchArtists(q) {
+  const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(() => []);
+  const best = new Map();
+  raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
+  return raw.filter(r => best.get(key(r)) === r);
+}
+let suggestions = [], timer;
+function showArtists(res, onPick) {
+  suggestions = res.map(r => () => onPick(r));
+  $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
+    ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}</div></li>`).join('');
+  $('results').querySelectorAll('li').forEach(li => {
+    li.onclick = suggestions[li.dataset.i]; li.onkeydown = ev => ev.key === 'Enter' && suggestions[li.dataset.i]();
+  });
+}
+// /from A to B: autocompleta el tramo que se está escribiendo (A antes de «to», B después)
+const picked = new Map();  // nombre exacto elegido → artista, para que el comando use justo ese
+function parseFrom(q) {
+  const m = q.match(/^\/from\s+(.*?)(?:\s+to(?:\s+(.*))?)?$/i);
+  if (!m) return null;
+  return /\s+to(\s|$)/i.test(q) ? { a: m[1].trim(), b: (m[2] || '').trim(), part: 'b' } : { a: m[1].trim(), b: '', part: 'a' };
+}
+function suggestFrom(q) {
+  const f = parseFrom(q), text = f && f[f.part];
+  if (!text || text.length < 2 || picked.has(text)) { $('results').innerHTML = ''; return; }
+  timer = setTimeout(async () => {
+    const res = await searchArtists(text);
+    if ($('q').value.replace(/^\s+/, '') !== q) return;  // el usuario siguió escribiendo
+    showArtists(res, r => {
+      picked.set(r.name, r);
+      $('q').value = f.part === 'a' ? `/from ${r.name} to ` : `/from ${f.a} to ${r.name}`;
+      $('results').innerHTML = ''; $('q').focus(); sfx.select();
+    });
+  }, 250);
+}
+async function findArtist(name) {  // el elegido en las sugerencias; si no, el de nombre igual; si no, el más relevante
+  if (picked.has(name)) return picked.get(name);
+  const res = await searchArtists(name);
+  return res.find(r => norm(r.name) === norm(name)) || res[0] || null;
+}
+async function pathByNames(a, b) {
+  const [x, y] = await working(Promise.all([findArtist(a), findArtist(b)]));
+  if (!x || !y) { $('q').value = `/from ${a} to ${b}`; flashError(); return; }
+  working(tracePath(x, y));
+}
+const COMMANDS = [
+  { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
+  { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
+    run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
+  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
+];
+function showCommands(q) {
+  const word = q.split(/\s+/)[0].toLowerCase();
+  const list = COMMANDS.filter(c => c.fill.trim().startsWith(word));
+  $('results').innerHTML = list.map((c, i) => `<li class="cmd" tabindex="0" data-i="${i}">${c.usage}</li>`).join('');
+  $('results').querySelectorAll('li').forEach(li => li.onclick = () => {
+    $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
+  });
+}
+function runCommand(v) {
+  for (const c of COMMANDS) {
+    const m = v.match(c.re);
+    if (m) { $('q').value = ''; return c.run(m); }
+  }
+  flashError();
+}
+
+$('q').addEventListener('input', e => {
+  clearTimeout(timer);
+  const q = e.target.value.replace(/^\s+/, '');
+  if (/^\/from\s/i.test(q)) return suggestFrom(q);
+  if (q.startsWith('/')) return showCommands(q.trim());
+  if (q.trim().length < 2) { $('results').innerHTML = ''; return; }
+  timer = setTimeout(async () => {
+    showArtists(await searchArtists(q.trim()), r => { $('results').innerHTML = ''; $('q').value = ''; addOrigin(r); });
+  }, 250);
+});
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('q').value = ''; $('results').innerHTML = ''; return; }
+  if (e.key === 'Tab' && suggestions.length && $('results').querySelector('li:not(.cmd)')) {  // Tab = primera sugerencia
+    e.preventDefault(); suggestions[0](); return;
+  }
+  if (e.key !== 'Enter') return;
+  const v = $('q').value.trim();
+  if (v.startsWith('/')) { $('results').innerHTML = ''; runCommand(v); return; }
+  $('results').querySelector('li')?.click();
+});
+
+// ---------- Arranque ----------
+$('play').onclick = footPlay;
+$('clear').innerHTML = ICON.clear;
+$('clear').onclick = clearEverything;
+svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
+document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionada
+  if (e.key !== 'Delete' || e.target.tagName === 'INPUT') return;
+  const sel = byId.get(selId);
+  if (sel) removeNode(sel);
+});
+// ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
+(async () => {
+  const names = (new URLSearchParams(location.search).get('origen') || '').split(',').map(s => s.trim()).filter(Boolean);
+  for (const name of names) {
+    const r = await findArtist(name);
+    if (r) await addOrigin(r);
+  }
+})();
+render();
+</script>
+</body>
+</html>

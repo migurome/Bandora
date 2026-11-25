@@ -30,6 +30,10 @@ class FakeDeezer:
     def top(self, id):
         return self._a(id, "top").get("top")
 
+    def top_tracks(self, id, limit=10):
+        a = self._a(id, "top_tracks")
+        return (a.get("tracks") or ([a["top"]] if a.get("top") else []))[:limit]
+
     def album_genres(self, id):
         return self._a(id, "album_genres").get("genres", [])
 

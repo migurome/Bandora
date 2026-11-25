@@ -7,3 +7,4 @@ poc/cache/
 __pycache__/
 *.pyc
 .superpowers/
+weave/static/_smoke.html

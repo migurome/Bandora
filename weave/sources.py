@@ -35,6 +35,11 @@ class Deezer:
         t = self._get(f"/artist/{id}/top?limit=1").get("data", [])
         return {"title": t[0]["title"], "preview": t[0].get("preview")} if t else None
 
+    def top_tracks(self, id, limit=10) -> list[dict]:
+        """Canciones más escuchadas con preview de 30 s (las que no tienen preview se descartan)."""
+        return [{"title": t["title"], "preview": t["preview"]}
+                for t in self._get(f"/artist/{id}/top?limit={limit}").get("data", []) if t.get("preview")]
+
     def album_genres(self, id) -> list[str]:
         albums = self._get(f"/artist/{id}/albums?limit=1").get("data", [])
         if not albums:

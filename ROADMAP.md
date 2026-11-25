@@ -2,133 +2,122 @@
 
 ## Para qué es
 
-Un buscador visual de música para **descubrir grupos nuevos** y **ver la huella de tus gustos**.
-Escribes una banda, aparece un círculo; con doble clic se abren sus relacionadas como una red
-neuronal que va creciendo. Tus listas de Spotify se pueden volcar en el grafo, y se puede trazar
-el camino de un artista a otro (Marea → … → Michael Jackson).
+Un explorador visual de música para **descubrir grupos nuevos** y, más adelante, **ver la huella de tus gustos**.
+Escribes un artista, aparece su círculo con su foto y la red de grupos relacionados va creciendo a tu
+alrededor, como neuronas que se conectan. Se puede trazar el camino de un artista a otro
+(Marea → … → Michael Jackson) y escuchar sus canciones sin salir del mapa.
 
-A futuro, cada usuario tendrá su perfil local construido a partir de su export de Spotify.
+Todo en local. A futuro, cada usuario tendrá su perfil construido a partir de su export de Spotify.
 
-## Punto de partida: la prueba de concepto (`poc/`)
+## Comportamiento validado (referencia para todas las fases)
 
-Validada en noviembre de 2026. Qué funciona y se conserva como comportamiento de referencia:
+Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya integrada en `weave/`.
 
 | Comportamiento | Detalle |
 |---|---|
-| Búsqueda → círculo origen | Barra superior a todo el ancho |
-| Clic = ficha, doble clic = relacionadas | Ficha en barra lateral a toda altura, sin scroll, iconos Deezer/Spotify/quitar |
-| Máximo 5 conexiones por artista | Sin repeticiones; las bandas se reparten en abanico hacia fuera |
-| Nada entra al grafo a medio cargar | Arco de carga en la banda que se explora |
-| Listas de Spotify y «Mi top» | Desplegable; pila lateral izquierda con salida animada hacia el grafo; se puede interactuar mientras carga |
-| Camino de x a y | Botón «De → a»; cadena dorada con n artistas intermedios |
-| Filtro de género | La leyenda oculta/muestra familias |
-| Quitar | Botón o tecla Supr; se lleva la rama que colgaba de esa banda |
-| Huella | Aro dorado en las bandas que ya escuchas |
-| Sonidos de burbuja | Silenciables |
-| Colores pastel por familia | Nombre dentro del círculo |
+| Barra = terminal | Texto normal busca artistas; comandos con `/`: `/from A to B`, `/label on\|off`, `/clear`. Al escribir `/` se listan. Error = la barra tiembla en rojo, sin mensajes |
+| Autocompletado en comandos | En `/from` se sugieren artistas para A y para B; Tab, clic o Enter completan el nombre exacto |
+| Círculo = foto del artista | Recorte circular con aro del color de su familia de género; nombre debajo |
+| Clic / clic | Primer clic selecciona; clic sobre el seleccionado lo amplía con un menú en semicírculo por debajo |
+| Menú del círculo | Desplegar (amarillo) · ▶/❚❚ · siguiente canción · Deezer · Spotify |
+| Máximo 5 conexiones por artista | Sin repeticiones (nombre normalizado); abanico hacia fuera; aro punteado cuando está completo |
+| Nada entra a medio cargar | Arco que gira en la banda que se explora; los artistas entran ya completos |
+| Logo de Weave animado = trabajando | Grande en el centro con el mapa vacío; pequeño en la barra si hay bandas |
+| Música | Preview de las 10 canciones más escuchadas; pausa real; al acabar sigue la siguiente; el círculo que suena se oscurece con ▶ encima |
+| Pie | ▶/❚❚ (seleccionado o lo que suena) y ✕ (limpia y para la música) |
+| Camino | `/from A to B`: cadena dorada con n intermedios, artistas uno a uno |
+| Géneros | Ocultos por defecto; `/label on` muestra la leyenda, que es también filtro |
+| Quitar | Supr; se lleva la rama que colgaba de la banda |
+| Sonidos de burbuja | Siempre activos |
+| Interfaz sin texto | Iconos y colores en vez de etiquetas: usable en cualquier idioma |
 
-Descartado en la prueba (no volver a meterlo sin motivo): enlaces indirectos punteados, vista
-de géneros al alejar el zoom, contadores (fans, conexiones), botón «Mi huella».
+**Descartado** (no volver a meterlo sin motivo): enlaces indirectos punteados, vista de géneros al
+alejar el zoom, contadores, ficha lateral, pila de carga, carga de listas en la interfaz (se importarán
+en la fase de tu huella), marcas de «tu huella» en el mapa, botones de silenciar y de fotos.
 
 ### Lo que aprendimos y condiciona el diseño
 
-1. **Un nombre no identifica a un artista.** Deezer duplica fichas («B.B. King» / «B.B.King») y
-   mezcla homónimos (Leño con un rapero italiano). Hace falta un identificador propio con los ids
-   de cada fuente cruzados.
-2. **Consultar en vivo es lento.** MusicBrainz admite 1 petición/s: una lista de 146 artistas
-   tarda ~5 min la primera vez. Hay que tener los datos **antes**, en una base de datos local.
-3. **Los géneros de MusicBrainz son pobres** (casi todo «rock») y los de Deezer a veces erróneos.
-   Faltan familias (clásica, bandas sonoras, folk…).
-4. **Las relacionadas de Deezer son buenas para descubrir**, pero solo 25 por artista y no simétricas;
-   algunos artistas no tienen ninguna.
-5. **El camino entre artistas funciona** con búsqueda bidireccional priorizando bandas populares
-   (hacen de puente entre estilos), pero en vivo puede tardar 20 s o no encontrarlo.
+1. **Un nombre no identifica a un artista.** Deezer duplica fichas («B.B. King» / «B.B.King») y mezcla
+   homónimos (Leño con un rapero italiano). → Identidad propia con ids de cada fuente cruzados (hecho en fase 1).
+2. **Consultar en vivo es lento** (MusicBrainz: 1 petición/s). → Base de datos local (hecho en fase 1).
+3. **Los géneros de MusicBrainz son pobres** y los de Deezer a veces erróneos; faltan familias
+   (clásica, bandas sonoras, folk…). → Fase 2.
+4. **Las relacionadas de Deezer son buenas para descubrir**, pero solo 25 por artista y no simétricas.
+5. **Las URLs de preview caducan**: las canciones se piden siempre en vivo, no se guardan.
+6. **En Windows, `localhost` prueba antes IPv6**: el servidor escucha en `127.0.0.1` y `::1`.
 
 ---
 
 ## Fases
 
-Cada fase termina con algo que se puede usar. El orden pone primero los datos porque casi todos
-los problemas de la prueba vienen de ahí.
+### Fase 1 · Base de datos de artistas — ✅ hecha (25/11/2026)
 
-### Fase 1 · Base de datos de artistas
+SQLite local (`data/weave.db`) con identidad por fuente, MBID y nombre; ingesta reanudable con ritmo
+por API; semilla desde tu export; caminos sin red; el servidor lee de la base de datos.
+Plan: `docs/superpowers/plans/2026-11-25-fase1-base-de-datos.md`.
 
-**Objetivo:** que todo lo que hoy se consulta en vivo salga de una base de datos local, rápida y sin duplicados.
+Criterios comprobados: B.B. King sale una sola vez · Marea → Michael Jackson sin red (0,0 s, 7 intermedios)
+· un artista ya visto se abre al instante (~26 ms). El criterio original de «cargar Mercurio en segundos»
+dejó de aplicar al salir las listas de la interfaz.
 
-- Base de datos local (SQLite) con: artistas, ids por fuente (Deezer, MusicBrainz, Spotify, Wikidata),
-  géneros, familias y relaciones (con su orden de parecido y su fuente).
-- Resolución de identidad: un artista = un registro aunque tenga varias fichas o nombres;
-  los homónimos se separan por id de MusicBrainz.
-- Ingesta con respeto al ritmo de cada API, reanudable si se corta, y que reaproveche `poc/cache/`.
-- Semilla: los artistas de tu export de Spotify + sus relacionadas a dos saltos (unos miles de artistas).
-- El servidor de la prueba pasa a leer de la base de datos; la web no cambia.
-
-**Hecho cuando:** cargar «Mercurio» (146 artistas) tarda segundos, no minutos; B.B. King sale una
-sola vez; el camino Marea → Michael Jackson se calcula sin conexión.
+Pendiente operativo: el rastreo inicial va por 176 de ~2.500 (`python -m weave.ingest crawl`, reanudable).
 
 ### Fase 2 · Géneros y relaciones de calidad
 
 **Objetivo:** que el color y las conexiones signifiquen algo.
 
 - Géneros finos y grado de parecido desde Last.fm (necesita clave gratuita).
-- Sinergias desde Wikidata: miembros compartidos, colaboraciones, influencias. Se guardan como tipos de relación distintos.
-- Taxonomía de familias revisada (añadir clásica, bandas sonoras, folk, cantautor…) y editable.
-- Relación combinada: peso a partir de varias fuentes, para elegir las 5 mejores con más criterio.
+- Sinergias desde Wikidata: miembros compartidos, colaboraciones, influencias (tipos de relación distintos).
+- Familias revisadas: clásica, bandas sonoras, folk, cantautor… y editables.
+- Relación combinada de varias fuentes para elegir mejor las 5 que se despliegan.
 
-**Hecho cuando:** Leño sale como rock y no como hip hop; la lista «Classic» no aparece toda gris;
-en la ficha se ve por qué dos artistas están relacionados.
+**Hecho cuando:** Leño sale como rock y no como hip hop; los compositores clásicos no salen grises;
+el tooltip dice por qué dos artistas están relacionados.
 
 ### Fase 3 · Explorador definitivo
 
-**Objetivo:** convertir la prueba en la aplicación, sin perder lo validado (tabla de arriba).
+**Objetivo:** pulir la aplicación sobre la base ya integrada.
 
-- Reescritura ordenada del front (módulos, sin parches) y del servidor (API sobre la base de datos).
-- Rendimiento con cientos de nodos (valorar canvas/WebGL si SVG no aguanta).
+- Funcionar sin internet para lo ya visto (D3 incluido en el proyecto, no desde CDN; fotos en caché).
 - Deshacer, guardar y recuperar mapas en local.
-- Ficha enriquecida con lo de la fase 2 (por qué está relacionado, sinergias).
-- Pruebas automáticas de lo crítico: límite de 5, no duplicar, quitar rama, camino, carga en cola.
+- Rendimiento con cientos de bandas (valorar canvas si SVG no aguanta).
+- Ampliar la prueba de humo (`tools/smoke.py`) con cada comportamiento nuevo.
 
-**Hecho cuando:** la prueba de concepto se puede borrar.
+**Hecho cuando:** se puede usar un mapa guardado sin conexión.
 
 ### Fase 4 · Tu huella
 
 **Objetivo:** el segundo propósito del proyecto: ver tus gustos.
 
 - Perfil local a partir del export: peso por artista (minutos, recencia, listas, «Me gusta»).
-- Importar el historial ampliado de Spotify (pendiente de recibir) para tener todos los años.
+- Importar tus listas y el historial ampliado de Spotify (pendiente de recibir).
 - «Mi mapa»: tus familias de género, tus zonas de confort y las zonas vacías.
-- Evolución en el tiempo: cómo cambia el mapa año a año.
-- Integrar aquí la web de estadísticas actual (`web/`, generada por `build.py`).
+- Evolución en el tiempo, año a año.
+- Integrar la web de estadísticas (`tools/spotify-stats/`).
 
 **Hecho cuando:** abres la app y ves tu mapa sin buscar nada.
 
 ### Fase 5 · Descubrimiento
 
-**Objetivo:** que la app te proponga música, no solo que la explores.
-
 - Bandas puente: artistas que no escuchas pero se relacionan con muchos de los tuyos.
-- Rutas guiadas: de tu zona de confort hacia un estilo que elijas, paso a paso.
+- Rutas guiadas: de tu zona de confort hacia un estilo que elijas.
 - Exportar lo descubierto a una lista de Spotify (requiere conectar la cuenta).
 
 **Hecho cuando:** la app te recomienda grupos que acabas guardando.
 
 ### Fase 6 · Varios perfiles y empaquetado
 
-**Objetivo:** que otra persona pueda usarlo con su propio export.
-
 - Varios perfiles locales (cada uno con su export), sin mezclar datos.
-- Instalación sencilla en local.
-- Documentación de uso.
+- Instalación sencilla y documentación de uso.
 
 ---
 
 ## Decisiones pendientes
 
 - **Clave de Last.fm** (fase 2): ¿la sacamos?
-- **Tecnología del explorador definitivo** (fase 3): seguir con HTML + D3 sin framework, o pasar a un framework.
 - **Alcance de los perfiles** (fase 6): ¿solo local o algún día publicado?
 
 ## Datos del usuario
 
-`resources/` contiene el export personal de Spotify. Pagos, dirección e identificadores no se usan
-en ninguna fase. Nada se publica sin decisión expresa.
+`resources/` contiene el export personal de Spotify: no se sube al repositorio. Pagos, dirección e
+identificadores no se usan en ninguna fase. Nada se publica sin decisión expresa.

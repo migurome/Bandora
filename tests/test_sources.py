@@ -54,6 +54,14 @@ class DeezerTest(unittest.TestCase):
         self.assertEqual(Deezer(f).related(9148), [{"id": 4163, "name": "Extremoduro", "fans": 110115},
                                                    {"id": 6135, "name": "Platero y tú", "fans": 37384}])
 
+    def test_deezer_top_tracks_skip_missing_preview(self):
+        f = UrlFetcher({"/artist/9148/top": {"data": [
+            {"title": "Corazón de mimbre", "preview": "a.mp3"}, {"title": "Sin preview", "preview": ""},
+            {"title": "La luna me sabe a poco", "preview": "b.mp3"}]}})
+        self.assertEqual(Deezer(f).top_tracks(9148), [{"title": "Corazón de mimbre", "preview": "a.mp3"},
+                                                      {"title": "La luna me sabe a poco", "preview": "b.mp3"}])
+        self.assertIn("limit=10", f.urls[0])
+
     def test_deezer_artist_top_and_genres(self):
         f = UrlFetcher({
             "/artist/9148/top": {"data": [{"title": "Corazón de mimbre", "preview": "p.mp3"}]},
