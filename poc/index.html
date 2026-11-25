@@ -62,9 +62,13 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 @keyframes pulse { 50% { opacity: .3; } }
 .node text { pointer-events: none; user-select: none; }
 /* Menú del círculo ampliado: Spotify, Deezer, play/pausa, siguiente */
-.opt { cursor: pointer; animation: pop .18s ease-out; }
-.opt > circle { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
-.opt:hover > circle { stroke: var(--accent); }
+.opt { cursor: pointer; }
+.opt .pop { animation: pop .18s ease-out; transform-box: fill-box; transform-origin: center; }  /* animación en un grupo interior: no pisa la posición */
+.opt .bg { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.opt:hover .bg { stroke: var(--accent); }
+.opt.primary .bg { fill: var(--accent); stroke: var(--accent); }
+.opt.primary .ico { color: #111; }
+.opt.off { opacity: .35; cursor: default; }
 .opt .ico { color: var(--text); pointer-events: none; }
 @keyframes pop { from { opacity: 0; transform: scale(.4); } }
 .node .dot, .node .pic, .node clipPath circle { transition: r .2s; }
@@ -116,7 +120,6 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
   </svg>
 </div>
 <div id="foot">
-  <button id="expand" class="icon primary" aria-label="Desplegar relacionadas del artista de la ficha"></button>
   <button id="play" class="icon" aria-label="Reproducir o parar"></button>
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
 </div>
@@ -277,7 +280,9 @@ function render() {
     d3.select(this).style('font', L.font).classed('under', under).attr('fill', d.genre && !under ? '#15171c' : 'var(--text)')
       .attr('display', labelDisplay())
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
-      .attr('dy', (t, i) => i === 0 ? (under ? radius(d) + 16 : -(L.lines.length - 1) * LINE_H / 2 + 4) : LINE_H).text(t => t);
+      .attr('dy', (t, i) => i > 0 ? LINE_H
+        : under ? (d.open ? -(radius(d) + 10) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
+        : -(L.lines.length - 1) * LINE_H / 2 + 4).text(t => t);
   });
 
   sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
@@ -451,23 +456,28 @@ function clickNode(d) {
 }
 function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); playIcon(); }
 
-const OPTS = [  // ángulos en grados, por encima del círculo para no tapar el nombre
-  { key: 'spotify', ang: -165, icon: () => ICON.spotify, label: 'Spotify',
-    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
-  { key: 'deezer', ang: -115, icon: () => ICON.deezer, label: 'Deezer',
+const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
+const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
+  { key: 'expand', ang: 155, icon: () => ICON.explore, label: 'Desplegar relacionadas', primary: true,
+    off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
+  { key: 'play', ang: 122, icon: d => isPlaying(d) ? ICON.pause : ICON.play, label: 'Reproducir o pausar', run: d => playToggle(d) },
+  { key: 'next', ang: 90, icon: () => ICON.next, label: 'Siguiente canción', run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'deezer', ang: 58, icon: () => ICON.deezer, label: 'Deezer',
     run: d => window.open(d.link || 'https://www.deezer.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
-  { key: 'play', ang: -65, icon: d => isPlaying(d) ? ICON.pause : ICON.play, label: 'Reproducir o pausar', run: d => playToggle(d) },
-  { key: 'next', ang: -15, icon: () => ICON.next, label: 'Siguiente canción', run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'spotify', ang: 25, icon: () => ICON.spotify, label: 'Spotify',
+    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
 ];
 function renderMenus(all) {
   all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
     .join(enter => {
-      const g = enter.append('g').attr('class', 'opt').attr('role', 'button').attr('aria-label', o => o.label)
+      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
         .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
-      g.append('circle').attr('r', 17);
-      g.append('g').attr('class', 'ico');
+      const pop = g.append('g').attr('class', 'pop');
+      pop.append('circle').attr('class', 'bg').attr('r', 17);
+      pop.append('g').attr('class', 'ico');
       return g;
     })
+    .classed('off', o => !!(o.off && o.off(o.d)))
     .attr('transform', o => {
       const R = radius(o.d) + 24, a = o.ang * Math.PI / 180;
       return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
@@ -497,8 +507,6 @@ function playIcon() {
   const f = $('play');  // pie: pausa lo que suene; si no, reproduce el seleccionado (o reanuda)
   f.innerHTML = sounding() ? ICON.pause : ICON.play; f.setAttribute('aria-pressed', sounding());
   f.disabled = !sounding() && selId == null && queue.id == null;
-  const e = $('expand'), n = byId.get(selId);
-  e.disabled = !n || degree(n) >= MAX_LINKS || !!n.loading;
 }
 async function load(id, i, play) {
   const t = ++playToken;
@@ -663,8 +671,6 @@ document.addEventListener('keydown', e => {
 
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); if (window.playerReady) playIcon(); }
 $('clear').innerHTML = ICON.clear;
-$('expand').innerHTML = ICON.explore;
-$('expand').onclick = () => { const n = byId.get(selId); if (n) expand(n); };
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 function toggleLabels(on = !showLabels) {
   showLabels = on; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
