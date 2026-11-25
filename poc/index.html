@@ -445,27 +445,61 @@ async function addOrigin(r) {
 
 // ---------- Interfaz ----------
 let timer;
+// Búsqueda con un resultado por artista (Deezer duplica fichas: se queda la de más fans), en orden de relevancia
+async function searchArtists(q) {
+  const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(() => []);
+  const best = new Map();
+  raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
+  return raw.filter(r => best.get(key(r)) === r);
+}
+// Pinta sugerencias de artistas; onPick recibe el elegido
+let suggestions = [];
+function showArtists(res, onPick) {
+  suggestions = res.map(r => () => onPick(r));
+  $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
+    ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}</div></li>`).join('');
+  $('results').querySelectorAll('li').forEach(li => {
+    li.onclick = suggestions[li.dataset.i]; li.onkeydown = ev => ev.key === 'Enter' && suggestions[li.dataset.i]();
+  });
+}
+
+// /from A to B: autocompleta el tramo que se está escribiendo (A antes de «to», B después)
+const picked = new Map();  // nombre exacto elegido → artista, para que el comando use justo ese
+function parseFrom(q) {
+  const m = q.match(/^\/from\s+(.*?)(?:\s+to(?:\s+(.*))?)?$/i);
+  if (!m) return null;
+  return q.match(/\s+to(\s|$)/i) ? { a: m[1].trim(), b: (m[2] || '').trim(), part: 'b' } : { a: m[1].trim(), b: '', part: 'a' };
+}
+function suggestFrom(q) {
+  const f = parseFrom(q);
+  const text = f && f[f.part];
+  if (!text || text.length < 2 || picked.has(text)) { $('results').innerHTML = ''; return; }
+  timer = setTimeout(async () => {
+    const res = await searchArtists(text);
+    if ($('q').value.replace(/^\s+/, '') !== q) return;  // el usuario siguió escribiendo
+    showArtists(res, r => {
+      picked.set(r.name, r);
+      $('q').value = f.part === 'a' ? `/from ${r.name} to ` : `/from ${f.a} to ${r.name}`;
+      $('results').innerHTML = ''; $('q').focus(); sfx.select();
+    });
+  }, 250);
+}
+
 $('q').addEventListener('input', e => {
   clearTimeout(timer);
-  const q = e.target.value.trim();
-  if (q.startsWith('/')) { showCommands(q); return; }
-  if (q.length < 2) { $('results').innerHTML = ''; return; }
+  const q = e.target.value.replace(/^\s+/, '');
+  if (/^\/from\s/i.test(q)) { suggestFrom(q); return; }
+  if (q.startsWith('/')) { showCommands(q.trim()); return; }
+  if (q.trim().length < 2) { $('results').innerHTML = ''; return; }
   timer = setTimeout(async () => {
-    const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(err => (status(err.message), []));
-    const best = new Map();
-    raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
-    const res = raw.filter(r => best.get(key(r)) === r);
-    $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
-      ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}<br>
-      </div></li>`).join('');
-    $('results').querySelectorAll('li').forEach(li => {
-      const go = () => { $('results').innerHTML = ''; $('q').value = ''; addOrigin(res[li.dataset.i]); };
-      li.onclick = go; li.onkeydown = ev => ev.key === 'Enter' && go();
-    });
+    showArtists(await searchArtists(q.trim()), r => { $('results').innerHTML = ''; $('q').value = ''; addOrigin(r); });
   }, 250);
 });
 $('q').addEventListener('keydown', e => {
   if (e.key === 'Escape') { $('q').value = ''; $('results').innerHTML = ''; return; }
+  if (e.key === 'Tab' && suggestions.length && $('results').querySelector('li:not(.cmd)')) {  // Tab = aceptar la primera sugerencia
+    e.preventDefault(); suggestions[0](); return;
+  }
   if (e.key !== 'Enter') return;
   const v = $('q').value.trim();
   if (v.startsWith('/')) { $('results').innerHTML = ''; runCommand(v); return; }
@@ -492,9 +526,10 @@ async function runCommand(v) {
   }
   flashError();
 }
-// Artista por nombre: el resultado cuyo nombre normalizado coincide; si no, el primero
+// Artista por nombre: el elegido en las sugerencias; si no, el de nombre igual; si no, el más relevante
 async function findArtist(name) {
-  const res = await api('/api/search?q=' + encodeURIComponent(name)).catch(() => []);
+  if (picked.has(name)) return picked.get(name);
+  const res = await searchArtists(name);
   return res.find(r => norm(r.name) === norm(name)) || res[0] || null;
 }
 async function pathByNames(a, b) {
