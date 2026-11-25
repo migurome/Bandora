@@ -1,0 +1,67 @@
+import unittest
+
+from weave.sources import Deezer, MusicBrainz, SourceError
+
+
+class UrlFetcher:
+    """Fetcher falso: devuelve el JSON de la primera clave contenida en la URL."""
+
+    def __init__(self, routes):
+        self.routes, self.urls = routes, []
+
+    def get_json(self, url, service):
+        self.urls.append(url)
+        for k, v in self.routes.items():
+            if k in url:
+                return v
+        raise AssertionError("URL no prevista: " + url)
+
+
+class MusicBrainzTest(unittest.TestCase):
+    def test_mb_prefers_exact_name(self):
+        f = UrlFetcher({
+            "ws/2/artist/?query": {"artists": [
+                {"id": "mb-leno", "name": "Leno", "score": 100, "country": "BR", "tags": []},
+                {"id": "mb-leño", "name": "Leño", "score": 100, "country": "ES", "tags": []}]},
+            "ws/2/artist/mb-le%C3%B1o": {"genres": [{"name": "hard rock", "count": 2}]},
+            "ws/2/artist/mb-leño": {"genres": [{"name": "hard rock", "count": 2}]},
+        })
+        r = MusicBrainz(f).lookup("Leño")
+        self.assertEqual((r["mbid"], r["country"]), ("mb-leño", "ES"))
+
+    def test_mb_falls_back_to_tags(self):
+        f = UrlFetcher({
+            "ws/2/artist/?query": {"artists": [{"id": "x", "name": "Leño", "score": 100, "country": "ES",
+                                                "tags": [{"name": "hard rock", "count": 1}, {"name": "rock urbano", "count": 2}]}]},
+            "ws/2/artist/x?": {"genres": []},
+        })
+        self.assertEqual(MusicBrainz(f).lookup("Leño")["genres"], [("rock urbano", 2), ("hard rock", 1)])
+
+    def test_mb_no_match_below_95(self):
+        f = UrlFetcher({"ws/2/artist/?query": {"artists": [{"id": "x", "name": "Marea", "score": 88}]}})
+        self.assertIsNone(MusicBrainz(f).lookup("Marea"))
+
+
+class DeezerTest(unittest.TestCase):
+    def test_deezer_error_payload_raises(self):
+        f = UrlFetcher({"/artist/1": {"error": {"type": "DataException", "message": "no data"}}})
+        with self.assertRaises(SourceError):
+            Deezer(f).artist(1)
+
+    def test_deezer_related_shape(self):
+        f = UrlFetcher({"/artist/9148/related": {"data": [
+            {"id": 4163, "name": "Extremoduro", "nb_fan": 110115}, {"id": 6135, "name": "Platero y tú", "nb_fan": 37384}]}})
+        self.assertEqual(Deezer(f).related(9148), [{"id": 4163, "name": "Extremoduro", "fans": 110115},
+                                                   {"id": 6135, "name": "Platero y tú", "fans": 37384}])
+
+    def test_deezer_artist_top_and_genres(self):
+        f = UrlFetcher({
+            "/artist/9148/top": {"data": [{"title": "Corazón de mimbre", "preview": "p.mp3"}]},
+            "/artist/9148/albums": {"data": [{"id": 55}]},
+            "/album/55": {"genres": {"data": [{"name": "Alternativo"}, {"name": "Rock"}, {"name": "Pop"}]}},
+            "/artist/9148": {"id": 9148, "name": "Marea", "nb_fan": 53022, "picture_medium": "m.jpg", "link": "L"},
+        })
+        d = Deezer(f)
+        self.assertEqual(d.artist(9148), {"id": 9148, "name": "Marea", "fans": 53022, "picture": "m.jpg", "link": "L"})
+        self.assertEqual(d.top(9148), {"title": "Corazón de mimbre", "preview": "p.mp3"})
+        self.assertEqual(d.album_genres(9148), ["alternativo", "rock"])
