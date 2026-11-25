@@ -16,6 +16,7 @@ setTimeout(async () => {
     $('results').querySelector('li').click(); await sleep(2500);
     ok('origen añadido', nodes.length === 1 && nodes[0].name === 'Marea' && nodes[0].selected);
     ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
+    ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
     clk(nodeG('Marea')); await sleep(300);
     ok('menu 5 opciones', document.querySelectorAll('g.opt').length === 5);
     clk(opt('expand')); await sleep(6000);

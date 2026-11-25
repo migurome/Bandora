@@ -181,21 +181,6 @@ async function working(promise) {
   try { return await promise; } finally { busyCount--; showBusy(); }
 }
 
-// ---------- Géneros: familias con color pastel fijo ----------
-const FAMILIES = [  // la primera regla que encaja gana
-  ['Metal', /metal|grindcore|thrash|doom/, '#f5a9c8'],
-  ['Hip hop', /hip ?hop|rap|trap|drill|grime/, '#f3c6a5'],
-  ['Electrónica', /electr|house|techno|trance|edm|dubstep|drum and bass|ambient|synth|^dance$|idm/, '#9de3d0'],
-  ['Latina / Flamenco', /latin|flamenco|rumba|salsa|reggaet|cumbia|bachata|merengue|tango|bolero|ranchera|copla|son cubano/, '#f5a3a3'],
-  ['Soul / Funk / Jazz / Blues', /soul|funk|r&b|rhythm and blues|disco|jazz|blues|gospel|motown|swing/, '#c9bbf6'],
-  ['Pop', /pop|cantautor|singer-songwriter|chanson|schlager|variété/, '#b5e3a1'],
-  ['Rock', /rock|punk|grunge|indie|alternativ|britpop|emo|garage|shoegaze|post-|psychedel/, '#a3c9f5'],
-];
-const genreColor = new Map(FAMILIES.map(([f, , c]) => [f, c]).concat([['Otros', '#c0c6cf']]));
-// "blues rock", "pop rock", "hard rock"… son rock antes que su prefijo
-const family = g => /rock$|rock and roll|rock urbano/.test(g) ? 'Rock' : (FAMILIES.find(([, re]) => re.test(g)) || ['Otros'])[0];
-const colorOf = g => genreColor.get(g) || genreColor.get(family(g));  // acepta familia («Rock») o género («hard rock»)
-
 // ---------- Estado del grafo ----------
 const MAX_LINKS = 5;
 const nodes = [], links = [], byId = new Map(), byName = new Map(), artistCache = new Map();
@@ -217,7 +202,8 @@ const getArtist = id => {
 function addArtist(full, origin = false) {
   let n = byId.get(full.id) || byName.get(key(full));
   if (n) { n.origin ||= origin; return n; }
-  n = { id: full.id, name: full.name, fans: full.fans, sub: full.genres[0], genre: family(full.genres[0]),
+  // la familia (y su color y orden) la decide el servidor: weave/families.json
+  n = { id: full.id, name: full.name, fans: full.fans, sub: full.genres[0], genre: full.family, color: full.color, order: full.familyOrder,
         picture: full.picture, link: full.link, origin,
         x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight / 2 + (Math.random() - .5) * 200 };
   nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
@@ -244,10 +230,15 @@ function radius(d) {
   const r = Math.max(base + 6, 26);
   return d.open ? r * 1.8 : r;  // ampliado con su menú
 }
+// Familias presentes en el mapa, en su orden fijo: [{name, color}]
+function presentFamilies() {
+  const seen = new Map();
+  nodes.forEach(n => { if (!seen.has(n.genre)) seen.set(n.genre, n); });
+  return [...seen.values()].sort((a, b) => a.order - b.order).map(n => ({ name: n.genre, color: n.color }));
+}
 // Cada familia tiene un ancla en un círculo grande: acerca entre sí las bandas del mismo estilo
 function anchor(d) {
-  const present = new Set(nodes.map(n => n.genre));
-  const list = [...genreColor.keys()].filter(g => present.has(g));
+  const list = presentFamilies().map(f => f.name);
   const i = Math.max(0, list.indexOf(d.genre)), n = Math.max(list.length, 1);
   const R = n === 1 ? 0 : 140 + 30 * n;
   return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
@@ -316,8 +307,8 @@ function render() {
   all.select('.pic').attr('href', d => d.picture || null)
     .attr('x', d => -radius(d)).attr('y', d => -radius(d)).attr('width', d => 2 * radius(d)).attr('height', d => 2 * radius(d));
   // el color de la familia es el aro de la foto; blanco si está seleccionado
-  all.select('.dot').attr('r', radius).attr('fill', d => colorOf(d.genre))
-    .attr('stroke', d => d.selected ? '#fff' : colorOf(d.genre)).attr('stroke-width', d => d.selected ? 3 : 4);
+  all.select('.dot').attr('r', radius).attr('fill', d => d.color)
+    .attr('stroke', d => d.selected ? '#fff' : d.color).attr('stroke-width', d => d.selected ? 3 : 4);
   // aro punteado = ya no admite más conexiones
   all.select('.ring').attr('r', d => radius(d) + 4).attr('fill', 'none')
     .attr('stroke', d => d.exhausted ? 'var(--muted)' : 'none').attr('stroke-width', 2).attr('stroke-dasharray', '2 3');
@@ -360,9 +351,8 @@ function fitIfNeeded() {
 // Leyenda = filtro: pulsar una familia la oculta o la muestra
 function renderLegend() {
   $('legend').style.display = showLabels ? '' : 'none';
-  const present = new Set(nodes.map(d => d.genre));
-  $('legend').innerHTML = [...genreColor].filter(([g]) => present.has(g)).map(([g, c]) =>
-    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${c}"></i>${esc(g)}</button>`).join('');
+  $('legend').innerHTML = presentFamilies().map(({ name: g, color: c }) =>
+    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('');
   $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
     const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
   });
