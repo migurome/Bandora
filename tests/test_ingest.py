@@ -1,12 +1,12 @@
 import unittest
 
-from tests.fakes import FakeDeezer, FakeLastFm, FakeMusicBrainz
+from tests.fakes import FakeDeezer, FakeLastFm, FakeMusicBrainz, FakeWikidata
 from weave.db import connect
 from weave.ingest import Ingestor
 from weave.store import Store
 
 
-def world(lastfm=None):
+def world(lastfm=None, wikidata=None):
     dz = FakeDeezer({
         9148: {"name": "Marea", "fans": 53022, "related": [4163, 6135, 1, 2, 3, 4],
                "top": {"title": "Corazón de mimbre", "preview": "p.mp3"}, "genres": ["alternativo", "rock"]},
@@ -20,9 +20,10 @@ def world(lastfm=None):
         "Marea": {"mbid": "mb-marea", "country": "ES", "genres": [("rock", 3)]},
         "B.B. King": {"mbid": "mb-bb", "country": "US", "genres": [("blues", 5)]},
         "B.B.King": {"mbid": "mb-bb", "country": "US", "genres": [("blues", 5)]},
+        "Extremoduro": {"mbid": "mb-ext", "country": "ES", "genres": [("rock", 5)]},
     })
     store = Store(connect(":memory:"))
-    return store, dz, mb, Ingestor(store, dz, mb, lastfm)
+    return store, dz, mb, Ingestor(store, dz, mb, lastfm, wikidata)
 
 
 class IngestTest(unittest.TestCase):
@@ -117,3 +118,25 @@ class LastFmIngestTest(unittest.TestCase):
         store, ing = open_default(db_path=os.path.join(d, "w.db"), key_path=os.path.join(d, "no_existe.txt"))
         self.assertIsNone(ing.lastfm)
         store.conn.close()
+
+
+class WikidataIngestTest(unittest.TestCase):
+    def test_full_ingest_adds_member_relations(self):
+        wd = FakeWikidata({"mb-ext": [{"mbid": "mb-pla", "name": "Platero y Tú", "kind": "member"}]})
+        store, dz, mb, ing = world(wikidata=wd)
+        a = store.artist(ing.ensure_full(store.upsert_deezer(4163, "Extremoduro")))
+        self.assertIn(("Platero y tú", "member"), [(r["name"], r["kind"]) for r in a["related"]])
+
+    def test_wikidata_without_mbid_looks_it_up(self):
+        wd = FakeWikidata({"mb-marea": [{"mbid": "mb-ext", "name": "Extremoduro", "kind": "member"}]})
+        store, dz, mb, ing = world(wikidata=wd)
+        marea = store.upsert_deezer(9148, "Marea"); store.set_level(marea, 2)
+        self.assertTrue(ing.enrich_wikidata(marea))
+        self.assertEqual(store.mbid(marea), "mb-marea")
+        self.assertIn(("Extremoduro", "member"), [(r["name"], r["kind"]) for r in store.artist(marea)["related"]])
+
+    def test_unresolved_synergy_is_skipped(self):
+        wd = FakeWikidata({"mb-ext": [{"mbid": "mb-robe", "name": "Roberto Iniesta", "kind": "member"}]})
+        store, dz, mb, ing = world(wikidata=wd)
+        a = store.artist(ing.ensure_full(store.upsert_deezer(4163, "Extremoduro")))
+        self.assertNotIn("Roberto Iniesta", [r["name"] for r in a["related"]])

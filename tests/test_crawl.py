@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.fakes import FakeDeezer, FakeLastFm
+from tests.fakes import FakeDeezer, FakeLastFm, FakeWikidata
 from tests.test_ingest import world
 from weave.ingest import crawl, enrich_pending, import_poc_cache, seed, spotify_artists
 
@@ -96,3 +96,11 @@ class CrawlTest(unittest.TestCase):
         store.set_level(a, 2)
         enrich_pending(ing)  # termina (no se queda en bucle) …
         self.assertEqual(store.pending_lastfm(10), [a])  # … y el artista sigue pendiente para otro intento
+
+    def test_wikidata_failure_keeps_pending(self):
+        wd = FakeWikidata({}); wd.fail = True
+        store, dz, mb, ing = world(wikidata=wd)
+        a = store.upsert_deezer(4163, "Extremoduro", 10)
+        store.attach_mbid(a, "mb-ext"); store.set_level(a, 2)
+        enrich_pending(ing, which="wikidata")
+        self.assertEqual(store.pending_wikidata(10), [a])

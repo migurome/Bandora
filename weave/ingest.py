@@ -19,8 +19,8 @@ FULL, RELATED = 2, 1
 
 
 class Ingestor:
-    def __init__(self, store, deezer, mb, lastfm=None):
-        self.store, self.dz, self.mb, self.lastfm = store, deezer, mb, lastfm
+    def __init__(self, store, deezer, mb, lastfm=None, wikidata=None):
+        self.store, self.dz, self.mb, self.lastfm, self.wikidata = store, deezer, mb, lastfm, wikidata
 
     def _deezer_id(self, artist_id):
         dz = self.store.ext_id(artist_id, "deezer")
@@ -65,6 +65,7 @@ class Ingestor:
             self.store.set_genres(artist_id, [(g, len(genres) - i) for i, g in enumerate(genres)], "deezer")
         self._save_related(artist_id, related)
         self.enrich_lastfm(artist_id)
+        self.enrich_wikidata(artist_id)
         artist_id = self.store.dedupe_by_name(artist_id)
         self.store.set_level(artist_id, FULL)
         return artist_id
@@ -95,6 +96,44 @@ class Ingestor:
         if ids:
             self.store.set_related(artist_id, ids, "lastfm", weights)
         self.store.mark_lastfm(artist_id)
+        return True
+
+    def enrich_wikidata(self, artist_id: int) -> bool:
+        """Sinergias de Wikidata (miembros compartidos, influencias) como relaciones simétricas.
+        Devuelve False si Wikidata no está o falla: el artista queda pendiente para otro relleno."""
+        if not self.wikidata:
+            return False
+        mbid = self.store.mbid(artist_id)
+        if not mbid:  # Wikidata se consulta por MBID: si falta, se busca en MusicBrainz
+            try:
+                found = self.mb.lookup(self.store.artist(artist_id)["name"])
+            except Exception:  # noqa: BLE001 - MusicBrainz caído: se reintenta en otro relleno
+                return False
+            if found:
+                artist_id = self.store.attach_mbid(artist_id, found["mbid"])
+                mbid = self.store.mbid(artist_id)
+        if not mbid:
+            self.store.mark_wikidata(artist_id)  # sin MBID no hay nada que preguntar
+            return True
+        try:
+            synergies = self.wikidata.synergies(mbid)
+        except Exception:  # noqa: BLE001 - Wikidata caído o con límite
+            return False
+        pairs, searched = {"member": [], "influence": []}, 0
+        for syn in synergies:
+            other = self.store.by_mbid(syn["mbid"]) or self.store.by_alias(norm(syn["name"]))
+            if other is None and searched < 5:  # solo unas pocas búsquedas en Deezer por artista
+                searched += 1
+                try:
+                    other = self.resolve_name(syn["name"])
+                except (SourceError, OSError):
+                    other = None
+            if other and other != artist_id:
+                pairs[syn["kind"]].append((artist_id, other))
+        for kind, ps in pairs.items():
+            if ps:
+                self.store.add_relations(ps, kind, "wikidata")
+        self.store.mark_wikidata(artist_id)
         return True
 
     def top_tracks(self, artist_id: int) -> list[dict]:
@@ -230,25 +269,27 @@ def import_poc_cache(store, cache_dir: Path) -> int:
 
 def open_default(db_path=DB_PATH, key_path=KEY_PATH):
     from .db import connect
-    from .http import DEEZER, LASTFM, MUSICBRAINZ, Fetcher
-    from .sources import Deezer, LastFm, MusicBrainz
+    from .http import DEEZER, LASTFM, MUSICBRAINZ, WIKIDATA, Fetcher
+    from .sources import Deezer, LastFm, MusicBrainz, Wikidata
     from .store import Store
-    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12, LASTFM: 0.25})
+    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12, LASTFM: 0.25, WIKIDATA: 1.0})
     store = Store(connect(db_path))
     key = Path(key_path).read_text(encoding="utf-8").strip() if Path(key_path).exists() else ""
-    return store, Ingestor(store, Deezer(f), MusicBrainz(f), LastFm(f, key) if key else None)
+    return store, Ingestor(store, Deezer(f), MusicBrainz(f), LastFm(f, key) if key else None, Wikidata(f))
 
 
-def enrich_pending(ingestor, limit=None, on_progress=None) -> int:
-    """Pasa por Last.fm los artistas completos que aún no lo tienen (reanudable gracias a artist.lastfm_at)."""
+def enrich_pending(ingestor, limit=None, on_progress=None, which="lastfm") -> int:
+    """Pasa por Last.fm o Wikidata los artistas completos que aún no lo tienen (reanudable: lastfm_at / wikidata_at)."""
+    pending = ingestor.store.pending_lastfm if which == "lastfm" else ingestor.store.pending_wikidata
+    enrich = ingestor.enrich_lastfm if which == "lastfm" else ingestor.enrich_wikidata
     done, tried = 0, set()
     while limit is None or done < limit:
         # los que fallan en esta pasada se saltan sin marcar: quedan pendientes para el próximo relleno
-        nxt = next((a for a in ingestor.store.pending_lastfm(len(tried) + 1) if a not in tried), None)
+        nxt = next((a for a in pending(len(tried) + 1) if a not in tried), None)
         if nxt is None:
             break
         tried.add(nxt)
-        if ingestor.enrich_lastfm(nxt):
+        if enrich(nxt):
             done += 1
             if on_progress:
                 on_progress(done, nxt)
@@ -272,6 +313,8 @@ def main(argv=None):
     sub.add_parser("status", help="artistas por nivel y estado de la cola")
     lf = sub.add_parser("lastfm", help="completa con Last.fm los artistas que aún no lo tienen (reanudable)")
     lf.add_argument("--limit", type=int)
+    wd = sub.add_parser("wikidata", help="añade las sinergias de Wikidata (miembros, influencias); reanudable")
+    wd.add_argument("--limit", type=int)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # la consola de Windows usa cp1252 por defecto
@@ -300,6 +343,13 @@ def main(argv=None):
                 print(f"{chr(10)}Fin: {n} artistas.")
             except KeyboardInterrupt:
                 print(chr(10) + "Interrumpido. Relanza «lastfm» para continuar.")
+    elif args.cmd == "wikidata":
+        try:
+            n = enrich_pending(ing, args.limit, lambda d, aid: print(f"{chr(13)}completados con Wikidata: {d}", end="", flush=True),
+                               which="wikidata")
+            print(f"{chr(10)}Fin: {n} artistas.")
+        except KeyboardInterrupt:
+            print(chr(10) + "Interrumpido. Relanza «wikidata» para continuar.")
     _status(store)
 
 
