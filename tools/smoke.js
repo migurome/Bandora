@@ -41,18 +41,24 @@ setTimeout(async () => {
     ok('quitar desde el menú', nodes.length === 4 && !byId.has(other.id));
     clk(document.getElementById('svg')); await sleep(200);
     ok('fondo cierra', !document.querySelector('g.opt') && selId == null);
-    // pinchar en Marea y arrastrar hasta Michael Jackson teje el camino dentro del mapa
+    // arrastrar desde el botón de desplegar de Marea hasta Michael Jackson teje el camino dentro del mapa
     await addOrigin(await findArtist('Michael Jackson')); await sleep(800);
     const before = nodes.length, marea = nodes.find(n => n.name === 'Marea'), mj = nodes.find(n => n.name === 'Michael Jackson');
-    closeAll(); await sleep(300);
+    closeAll(); clk(nodeG('Marea')); await sleep(400);
     const at = el => { const r = el.getBoundingClientRect(); return { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, view: window }; };
-    const from = at(nodeG('Marea').querySelector('.dot')), to = at(nodeG('Michael Jackson').querySelector('.dot'));
-    nodeG('Marea').querySelector('.dot').dispatchEvent(new MouseEvent('mousedown', { ...from, button: 0 }));
+    const from = at(opt('expand').querySelector('.bg')), to = at(nodeG('Michael Jackson').querySelector('.dot'));
+    opt('expand').dispatchEvent(new MouseEvent('mousedown', { ...from, button: 0 }));
     window.dispatchEvent(new MouseEvent('mousemove', { ...from, clientX: from.clientX + 20 }));
     window.dispatchEvent(new MouseEvent('mousemove', to));
     window.dispatchEvent(new MouseEvent('mouseup', to));
     await sleep(15000);
     ok('conectar arrastrando', nodes.length > before && links.some(l => l.path) && nodes.includes(marea) && nodes.includes(mj));
+    // arrastrar un círculo lo mueve y no conecta
+    const g0 = nodeG('Michael Jackson'), x0 = mj.x, nLinks = links.length, p0 = at(g0.querySelector('.dot'));
+    g0.querySelector('.dot').dispatchEvent(new MouseEvent('mousedown', { ...p0, button: 0 }));
+    window.dispatchEvent(new MouseEvent('mousemove', { ...p0, clientX: p0.clientX + 60 }));
+    window.dispatchEvent(new MouseEvent('mouseup', { ...p0, clientX: p0.clientX + 60 })); await sleep(200);
+    ok('arrastrar mueve el círculo', mj.x > x0 + 20 && links.length === nLinks);
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length > 5 && links.every(l => l.path));

@@ -20,7 +20,8 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 | Menú del círculo | Desplegar relacionadas · corona · ▶/❚❚ · siguiente canción · quitar · Spotify |
 | Favoritas | Corona del menú; ✕ deja solo las favoritas y un segundo ✕ borra todo |
 | Desplegar relacionadas | Botón amarillo del menú (máx. 5 conexiones por artista) |
-| Conectar dos artistas | Pincha en un círculo y arrastra hasta otro |
+| Conectar dos artistas | Arrastra el botón amarillo del menú hasta otro círculo |
+| Mover un círculo | Arrástralo: se queda donde lo sueltes |
 | Quitar artista | Papelera del menú o Supr (se lleva la rama que colgaba de él) |
 | Camino entre artistas | `/from Marea to Michael Jackson` (Tab completa los nombres) |
 | Leyenda y filtro de géneros | `/label on` · `/label off` |

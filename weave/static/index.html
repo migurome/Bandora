@@ -303,7 +303,11 @@ function render() {
   const e = n.enter().append('g')
     .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })
     .on('mousemove', (ev, d) => showTip(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
-    .call(connectDrag);  // pinchar y arrastrar hasta otro círculo los conecta
+    .call(d3.drag()  // arrastrar el círculo lo mueve (los botones del menú no)
+      .filter(ev => !ev.button && !ev.target.closest('.opt'))
+      .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (ev, d) => { d.x = d.fx = ev.x; d.y = d.fy = ev.y; })
+      .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); }));  // se queda donde lo sueltas
   e.append('circle').attr('class', 'ring');
   e.append('circle').attr('class', 'spin');
   e.append('circle').attr('class', 'dot');
@@ -410,6 +414,7 @@ function renderMenus(all) {
     .join(enter => {
       const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
         .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
+      g.filter(o => o.key === 'expand').call(connectDrag);  // del botón amarillo sale la línea de unión
       const pop = g.append('g').attr('class', 'pop');
       pop.append('circle').attr('class', 'bg').attr('r', 17);
       pop.append('g').attr('class', 'ico');
@@ -429,15 +434,15 @@ function renderMenus(all) {
     });
 }
 
-// ---------- Conectar: pinchar en un círculo y arrastrar hasta otro teje el camino entre los dos ----------
+// ---------- Conectar: arrastrar desde el botón de desplegar hasta otro círculo teje el camino entre los dos ----------
 const gWire = root.append('g');
 const nodeAt = p => nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) <= radius(n));
-const connectDrag = d3.drag()
-  .filter(ev => !ev.button && !ev.target.closest('.opt'))  // los botones del menú no arrastran
+const connectDrag = d3.drag()  // se arrastra desde el botón de desplegar; un clic sin arrastrar sigue desplegando
+  .filter(ev => !ev.button)
   .on('start', ev => {
-    ev.sourceEvent.stopPropagation();  // sin mover el mapa
-    const a = ev.subject;
-    gWire.append('line').attr('class', 'wire').attr('x1', a.x).attr('y1', a.y).attr('x2', a.x).attr('y2', a.y);
+    ev.sourceEvent.stopPropagation();  // ni mover el círculo ni el mapa
+    const [x, y] = d3.pointer(ev.sourceEvent, root.node());
+    gWire.append('line').attr('class', 'wire').attr('x1', x).attr('y1', y).attr('x2', x).attr('y2', y);
   })
   .on('drag', ev => {
     const [x, y] = d3.pointer(ev.sourceEvent, root.node());
@@ -445,7 +450,7 @@ const connectDrag = d3.drag()
   })
   .on('end', ev => {
     gWire.selectAll('line').remove();
-    const a = ev.subject, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
+    const a = ev.subject.d, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
     if (!b || b === a) return;  // soltado en el vacío o en sí mismo: no hace nada
     sfx.select(); connectPath(a, b);
   });
