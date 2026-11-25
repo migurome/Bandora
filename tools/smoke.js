@@ -56,9 +56,9 @@ setTimeout(async () => {
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length > 5 && links.every(l => l.path));
-    // chincheta: el primer ✕ deja solo las favoritas; el segundo borra todo
+    // corona: el primer ✕ deja solo las favoritas; el segundo borra todo
     const fav = nodes.find(n => n.name === 'Marea'); closeAll(); clk(nodeG('Marea')); await sleep(300); clk(opt('pin')); await sleep(200);
-    ok('chincheta marca', fav.pinned && getComputedStyle(nodeG('Marea').querySelector('.pinmark')).display !== 'none');
+    ok('corona marca', fav.pinned && getComputedStyle(nodeG('Marea').querySelector('.pinmark')).display !== 'none');
     $('clear').click(); await sleep(300);
     ok('✕ deja las favoritas', nodes.length === 1 && nodes[0] === fav);
     $('clear').click(); await sleep(300);

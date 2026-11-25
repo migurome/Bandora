@@ -90,7 +90,7 @@ button:hover { background: #3a3f49; }
 .opt.primary .ico { color: #111; }
 .opt.on .bg { stroke: var(--accent); }
 .opt.on .ico { color: var(--accent); }
-/* chincheta: favorita; sobrevive a ✕ (el segundo ✕ borra todo) */
+/* corona: favorita; sobrevive a ✕ (el segundo ✕ borra todo) */
 .node .pinmark { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }
 .opt.off { opacity: .35; cursor: default; }
 /* línea que se arrastra desde el conector hasta otro círculo */
@@ -137,8 +137,8 @@ const api = async url => { const r = await fetch(url); const j = await r.json();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
-  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 6 3 3H7l3-3zM12 12v9"/></svg>',
-  pinOn: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 6 3 3H7l3-3z"/><path d="M12 12v9" fill="none"/></svg>',
+  crown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 18h18l1-11-5 4-5-7-5 7-5-4z"/></svg>',
+  crownOn: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 18h18l1-11-5 4-5-7-5 7-5-4z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
@@ -310,7 +310,7 @@ function render() {
   e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');  // recorte circular de la foto
   e.append('image').attr('class', 'pic').attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', d => `url(#clip${d.id})`);
   e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
-  e.append('path').attr('class', 'pinmark').attr('d', 'M-4,-9 h8 l-1.5,6 l4,4 h-13 l4,-4 z M-1,1 h2 v8 h-2 z');
+  e.append('path').attr('class', 'pinmark').attr('d', 'M-11,0 H11 L12.5,-11 L6.5,-6.5 L0,-14 L-6.5,-6.5 L-12.5,-11 Z');  // corona
   e.append('text').attr('text-anchor', 'middle');
 
   const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
@@ -328,13 +328,13 @@ function render() {
     .attr('display', d => d.loading ? null : 'none');
   all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
   all.select('.pinmark').attr('display', d => d.pinned ? null : 'none')
-    .attr('transform', d => `translate(${radius(d) * 0.72},${-radius(d) * 0.72}) rotate(30)`);
+    .attr('transform', d => `translate(0,${-radius(d) + 3}) scale(${Math.max(0.8, radius(d) / 40)})`);  // encima del círculo
   all.select('text').each(function (d) {
     const L = nameLines(d);
     d3.select(this).style('font', L.font).attr('display', k < 0.6 ? 'none' : null)
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
       // debajo del círculo; encima mientras está ampliado (el menú ocupa la parte de abajo)
-      .attr('dy', (t, i) => i > 0 ? LINE_H : d.open ? -(radius(d) + 10) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
+      .attr('dy', (t, i) => i > 0 ? LINE_H : d.open ? -(radius(d) + (d.pinned ? 22 : 10)) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
       .text(t => t);
   });
   renderMenus(all);
@@ -397,7 +397,7 @@ const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
 const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
   { key: 'expand', ang: 160, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
-  { key: 'pin', ang: 134, label: 'Chincheta: favorita', icon: d => d.pinned ? ICON.pinOn : ICON.pin, on: d => !!d.pinned,
+  { key: 'pin', ang: 134, label: 'Corona: favorita', icon: d => d.pinned ? ICON.crownOn : ICON.crown, on: d => !!d.pinned,
     run: d => { d.pinned = !d.pinned; sfx.select(); render(); } },
   { key: 'play', ang: 108, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
   { key: 'next', ang: 82, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
@@ -561,7 +561,7 @@ function stopMusic() {
   player.pause(); player.removeAttribute('src'); player.load();
   queue = { id: null, list: [], i: 0 };
 }
-// ✕ y /clear: si hay chinchetas, quedan solo las favoritas; si ya solo hay favoritas (o ninguna), se borra todo
+// ✕ y /clear: si hay coronas, quedan solo las favoritas; si ya solo hay favoritas (o ninguna), se borra todo
 function clearEverything() {
   runId++;
   const pinned = nodes.filter(n => n.pinned);

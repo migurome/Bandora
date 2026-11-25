@@ -17,8 +17,8 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 |---|---|
 | Añadir artista | Escríbelo en la barra y elige una sugerencia |
 | Abrir / cerrar su menú | Clic en el círculo |
-| Menú del círculo | Desplegar relacionadas · chincheta · ▶/❚❚ · siguiente canción · quitar · Spotify |
-| Favoritas | Chincheta del menú; ✕ deja solo las favoritas y un segundo ✕ borra todo |
+| Menú del círculo | Desplegar relacionadas · corona · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Favoritas | Corona del menú; ✕ deja solo las favoritas y un segundo ✕ borra todo |
 | Desplegar relacionadas | Botón amarillo del menú (máx. 5 conexiones por artista) |
 | Conectar dos artistas | Pincha en un círculo y arrastra hasta otro |
 | Quitar artista | Papelera del menú o Supr (se lleva la rama que colgaba de él) |
