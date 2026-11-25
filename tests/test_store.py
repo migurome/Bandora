@@ -50,6 +50,49 @@ class StoreTest(unittest.TestCase):
         r = self.s.artist(a)
         self.assertEqual((r["family"], r["color"], r["familyOrder"]), ("Rock", "#a3c9f5", 8))
 
+    def test_migrates_v1_database(self):
+        import sqlite3
+        path = os.path.join(tempfile.mkdtemp(), "v1.db")
+        old = sqlite3.connect(path)
+        old.executescript("""CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE artist (id INTEGER PRIMARY KEY, name TEXT NOT NULL, mbid TEXT UNIQUE, country TEXT, fans INTEGER DEFAULT 0,
+              picture TEXT, link TEXT, preview TEXT, preview_title TEXT, level INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
+            CREATE TABLE relation (a INTEGER NOT NULL, b INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT 'similar', rank INTEGER,
+              source TEXT NOT NULL, PRIMARY KEY (a, b, kind, source), CHECK (a <> b));
+            INSERT INTO meta VALUES ('schema_version', '1');
+            INSERT INTO artist (id, name, fans, level) VALUES (1, 'Marea', 53022, 2);""")
+        old.commit(); old.close()
+        conn = connect(path)
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "2")
+        self.assertEqual(conn.execute("SELECT name, fans, level FROM artist").fetchone()[:], ("Marea", 53022, 2))
+        self.assertIn("weight", [r[1] for r in conn.execute("PRAGMA table_info(relation)")])
+        self.assertIn("lastfm_at", [r[1] for r in conn.execute("PRAGMA table_info(artist)")])
+        conn.close()
+
+    def test_related_combined_order(self):
+        a, x, y, z = (self.s.upsert_deezer(i, n) for i, n in [(1, "A"), (2, "X"), (3, "Y"), (4, "Z")])
+        self.s.set_related(a, [x, y, z])
+        self.s.set_related(a, [z, y], source="lastfm", weights=[0.9, 0.2])
+        self.assertEqual([r["id"] for r in self.s.artist(a)["related"]], [z, y, x])  # y está en las dos fuentes: supera a x
+
+    def test_related_lastfm_only(self):
+        a, x, y = (self.s.upsert_deezer(i, n) for i, n in [(1, "A"), (2, "X"), (3, "Y")])
+        self.s.set_related(a, [y, x], source="lastfm", weights=[0.3, 0.8])
+        self.assertEqual([r["id"] for r in self.s.artist(a)["related"]], [x, y])
+
+    def test_genres_prefer_lastfm(self):
+        a = self.s.upsert_deezer(9148, "Marea")
+        self.s.set_genres(a, [("rock", 3)], "musicbrainz")
+        self.s.set_genres(a, [("rock urbano", 35)], "lastfm")
+        self.assertEqual(self.s.artist(a)["genres"][0], "rock urbano")
+
+    def test_pending_lastfm(self):
+        a = self.s.upsert_deezer(1, "A", 10)
+        b = self.s.upsert_deezer(2, "B", 5)
+        self.s.set_level(a, 2); self.s.set_level(b, 2)
+        self.s.mark_lastfm(a)
+        self.assertEqual(self.s.pending_lastfm(10), [b])
+
     def test_level_never_decreases(self):
         a = self.s.upsert_deezer(9148, "Marea")
         self.s.set_level(a, 2)

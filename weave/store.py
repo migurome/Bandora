@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from .families import color_of, family_of_list, order_of
 from .text import norm
 
-SOURCE_ORDER = {"musicbrainz": 0, "deezer": 1}
+SOURCE_ORDER = {"lastfm": 0, "musicbrainz": 1, "deezer": 2}  # prioridad de géneros
 
 
 class Store:
@@ -60,11 +60,12 @@ class Store:
             c.execute("DELETE FROM genre WHERE artist_id=? AND source=?", (artist_id, source))
             c.executemany("INSERT OR IGNORE INTO genre VALUES (?, ?, ?, ?)", [(artist_id, g, w, source) for g, w in genres])
 
-    def set_related(self, artist_id, related_ids, source="deezer"):
+    def set_related(self, artist_id, related_ids, source="deezer", weights=None):
+        weights = weights or [None] * len(related_ids)
         with self._write() as c:
             c.execute("DELETE FROM relation WHERE a=? AND kind='similar' AND source=?", (artist_id, source))
-            c.executemany("INSERT OR IGNORE INTO relation VALUES (?, ?, 'similar', ?, ?)",
-                          [(artist_id, b, rank, source) for rank, b in enumerate(related_ids) if b != artist_id])
+            c.executemany("INSERT OR IGNORE INTO relation (a, b, kind, rank, source, weight) VALUES (?, ?, 'similar', ?, ?, ?)",
+                          [(artist_id, b, rank, source, w) for rank, (b, w) in enumerate(zip(related_ids, weights)) if b != artist_id])
             c.execute("UPDATE artist SET level=MAX(level, 1) WHERE id=?", (artist_id,))
 
     def set_level(self, artist_id, level: int):
@@ -144,6 +145,15 @@ class Store:
         states = dict(self._read("SELECT state, COUNT(*) FROM crawl GROUP BY state"))
         return {"levels": levels, "crawl": states}
 
+    def mark_lastfm(self, artist_id: int):
+        with self._write() as c:
+            c.execute("UPDATE artist SET lastfm_at=? WHERE id=?", (_now(), artist_id))
+
+    def pending_lastfm(self, limit: int) -> list[int]:
+        """Artistas completos aún sin pasar por Last.fm, los más populares primero."""
+        return [r[0] for r in self._read("SELECT id FROM artist WHERE level >= 2 AND lastfm_at IS NULL ORDER BY fans DESC, id LIMIT ?",
+                                         (limit,))]
+
     # ---------- lecturas ----------
     def by_source(self, source: str, ext_id) -> int | None:
         rows = self._read("SELECT artist_id FROM source_id WHERE source=? AND ext_id=?", (source, str(ext_id)))
@@ -172,8 +182,12 @@ class Store:
         a = rows[0]
         genres = self._read("SELECT name, weight, source FROM genre WHERE artist_id=?", (artist_id,))
         genres = [g["name"] for g in sorted(genres, key=lambda g: (SOURCE_ORDER.get(g["source"], 9), -(g["weight"] or 0)))]
+        # Orden combinado: Last.fm aporta su parecido (0-1) y Deezer su posición; quien está en las dos sube
         related = self._read("""SELECT r.b AS id, x.name, x.fans FROM relation r JOIN artist x ON x.id = r.b
-                                WHERE r.a=? AND r.kind='similar' ORDER BY r.rank""", (artist_id,))
+                                WHERE r.a=? AND r.kind='similar' GROUP BY r.b
+                                ORDER BY SUM(CASE r.source WHEN 'lastfm' THEN 0.6 * COALESCE(r.weight, 0)
+                                                           WHEN 'deezer' THEN 0.4 * (1 - COALESCE(r.rank, 25) / 25.0)
+                                                           ELSE 0 END) DESC, r.b""", (artist_id,))
         genres = _dedupe(genres) or ["sin género"]
         fam = family_of_list(genres)
         return {"id": a["id"], "name": a["name"], "fans": a["fans"], "picture": a["picture"], "link": a["link"],
@@ -202,8 +216,8 @@ def _merge(c, keep: int, drop: int) -> int:
     c.execute("INSERT OR IGNORE INTO alias SELECT ?, name, norm FROM alias WHERE artist_id=?", (keep, drop))
     c.execute("INSERT OR IGNORE INTO genre SELECT ?, name, weight, source FROM genre WHERE artist_id=?", (keep, drop))
     # relaciones: se reescribe drop→keep en ambos extremos, sin duplicar y sin crear a == b
-    c.execute("""INSERT OR IGNORE INTO relation
-                 SELECT CASE WHEN a=:d THEN :k ELSE a END, CASE WHEN b=:d THEN :k ELSE b END, kind, rank, source
+    c.execute("""INSERT OR IGNORE INTO relation (a, b, kind, rank, source, weight)
+                 SELECT CASE WHEN a=:d THEN :k ELSE a END, CASE WHEN b=:d THEN :k ELSE b END, kind, rank, source, weight
                  FROM relation WHERE (a=:d OR b=:d)
                    AND (CASE WHEN a=:d THEN :k ELSE a END) <> (CASE WHEN b=:d THEN :k ELSE b END)""", {"d": drop, "k": keep})
     c.execute("UPDATE OR IGNORE crawl SET artist_id=? WHERE artist_id=?", (keep, drop))
