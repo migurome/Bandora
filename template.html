@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ExploraMúsica · Mi año en Spotify</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f6f4; --surface: #ffffff; --line: #e4e4e0;
+  --text: #191919; --muted: #666666;
+  --s1: #257de0; --s2: #f47230;
+  --heat: 37,125,224;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #111111; --surface: #191919; --line: #2c2c2c;
+    --text: #efefef; --muted: #9c9c9c;
+    --s1: #338ced; --s2: #e76624;
+    --heat: 51,140,237;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+header h1 { font-size: clamp(28px, 5vw, 44px); margin: 0 0 4px; letter-spacing: -0.02em; }
+header p { margin: 0; color: var(--muted); }
+nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 24px 0 8px; position: sticky; top: 0;
+  background: var(--bg); padding: 10px 0; z-index: 2; }
+nav a { color: var(--text); text-decoration: none; padding: 6px 12px; border: 1px solid var(--line);
+  border-radius: 999px; font-size: 13px; }
+nav a:hover, nav a:focus-visible { border-color: var(--s1); outline: none; }
+section { margin-top: 36px; scroll-margin-top: 60px; }
+h2 { font-size: 20px; margin: 0 0 12px; }
+h3 { font-size: 15px; margin: 0 0 10px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.kpi b { display: block; font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi span { color: var(--muted); font-size: 13px; }
+.note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+
+/* Barras horizontales */
+.bars { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+.bars li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center;
+  padding: 3px 0; counter-increment: r; }
+.bars li::before { content: counter(r); color: var(--muted); font-size: 12px; text-align: right; }
+.bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .val { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.bars .bar { grid-column: 2 / 4; height: 6px; border-radius: 0 4px 4px 0; background: var(--s1); }
+
+/* Columnas mensuales */
+.cols { display: flex; align-items: flex-end; gap: 2px; height: 220px; padding-top: 10px; border-bottom: 1px solid var(--line); }
+.col { flex: 1; display: flex; flex-direction: column-reverse; gap: 2px; height: 100%; cursor: default; }
+.col i { display: block; border-radius: 4px 4px 0 0; }
+.col i.m { background: var(--s1); }
+.col i.p { background: var(--s2); }
+.col i.m + i.p { border-radius: 4px 4px 0 0; }
+.col i.m:has(+ i.p) { border-radius: 0; }
+.col:hover i, .col:focus-visible i { filter: brightness(1.15); }
+.xlab { display: flex; gap: 2px; font-size: 11px; color: var(--muted); }
+.xlab span { flex: 1; text-align: center; }
+.legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* Mapa de calor */
+.heat { display: grid; grid-template-columns: 34px repeat(24, 1fr); gap: 2px; font-size: 11px; color: var(--muted); }
+.heat .c { aspect-ratio: 1; border-radius: 3px; background: rgba(var(--heat), var(--a)); outline: 1px solid var(--line); outline-offset: -1px; }
+.heat .c:hover { outline: 2px solid var(--text); }
+.heat .h { text-align: center; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.tags small { color: var(--muted); margin-left: 4px; }
+.hl { list-style: none; padding: 0; margin: 0; }
+.hl li { padding: 8px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 90px 1fr; gap: 10px; }
+.hl li:first-child { border-top: 0; }
+.hl time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+td, th { padding: 6px 4px; border-top: 1px solid var(--line); text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+input[type=search] { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--text); font: inherit; margin-bottom: 10px; }
+details.pl { border-top: 1px solid var(--line); }
+details.pl summary { cursor: pointer; padding: 10px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; color: var(--text); font-size: 15px; margin: 0; }
+details.pl summary span { color: var(--muted); font-size: 13px; }
+details.pl summary:hover b { color: var(--s1); }
+.scroll { max-height: 420px; overflow: auto; margin-bottom: 12px; }
+.scroll thead th { position: sticky; top: 0; background: var(--surface); }
+td.muted { color: var(--muted); }
+td.nw { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+td a { color: var(--text); text-decoration: none; }
+td a:hover { color: var(--s1); text-decoration: underline; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+#tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 10px;
+  border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .1s; z-index: 10; max-width: 280px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Mi año en Spotify</h1>
+    <p id="range"></p>
+  </header>
+  <nav>
+    <a href="#resumen">Resumen</a><a href="#tiempo">Cuándo escucho</a><a href="#artistas">Artistas y canciones</a>
+    <a href="#podcasts">Podcasts</a><a href="#playlists">Playlists y biblioteca</a><a href="#wrapped">Wrapped 2025</a>
+    <a href="#capsula">Cápsula sonora</a>
+  </nav>
+
+  <section id="resumen">
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section id="tiempo">
+    <h2>Cuándo escucho</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Minutos por mes</h3>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Música</span><span><i style="background:var(--s2)"></i>Podcasts</span></div>
+        <div class="cols" id="months"></div>
+        <div class="xlab" id="monthsX"></div>
+        <details><summary>Ver tabla</summary><table id="monthsT"></table></details>
+      </div>
+      <div class="card">
+        <h3>Música por día y hora</h3>
+        <div class="heat" id="heat"></div>
+        <p class="note" id="heatNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="artistas">
+    <h2>Artistas y canciones</h2>
+    <div class="grid">
+      <div class="card"><h3>Top artistas (minutos)</h3><ol class="bars" id="topArtists"></ol></div>
+      <div class="card"><h3>Top canciones (minutos)</h3><ol class="bars" id="topTracks"></ol></div>
+      <div class="card"><h3>Más reproducidas (≥ 30 s)</h3><ol class="bars" id="topPlays"></ol></div>
+      <div class="card"><h3>Lo que más busco</h3><div class="tags" id="searches"></div>
+        <p class="note">Búsquedas de 4 o más letras; Spotify guarda cada pulsación.</p></div>
+    </div>
+  </section>
+
+  <section id="podcasts">
+    <h2>Podcasts</h2>
+    <div class="grid">
+      <div class="card"><h3>Top podcasts (minutos)</h3><ol class="bars" id="topPods"></ol></div>
+      <div class="card"><h3>Episodios más escuchados</h3><ol class="bars" id="topEps"></ol></div>
+    </div>
+  </section>
+
+  <section id="playlists">
+    <h2>Playlists y biblioteca</h2>
+    <div class="grid">
+      <div class="card" style="grid-column: 1 / -1">
+        <h3>Mis playlists</h3>
+        <input type="search" id="plq" placeholder="Buscar playlist, canción, artista o álbum…" aria-label="Buscar en playlists">
+        <p class="note" id="plCount" style="margin:0 0 8px"></p>
+        <div id="pl"></div>
+      </div>
+      <div class="card">
+        <h3>Artistas más presentes en mis playlists</h3><ol class="bars" id="plArtists"></ol>
+        <h3 style="margin-top:20px">Biblioteca</h3><div class="tags" id="library"></div>
+        <h3 style="margin-top:20px">Más guardados en «Me gusta»</h3><div class="tags" id="libArtists"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="wrapped">
+    <h2>Wrapped 2025</h2>
+    <div class="kpis" id="wrappedK"></div>
+  </section>
+
+  <section id="capsula">
+    <h2>Cápsula sonora</h2>
+    <div class="grid">
+      <div class="card"><h3>Últimas semanas</h3><div id="capsule"></div></div>
+      <div class="card"><h3>Momentos destacados</h3><ul class="hl" id="highlights"></ul></div>
+    </div>
+  </section>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const D = /*DATA*/null;
+const $ = id => document.getElementById(id);
+const nf = new Intl.NumberFormat('es-ES');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate = s => new Date(s + 'T12:00').toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'});
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+// Tooltip compartido: cualquier elemento con data-tip
+const tip = $('tip');
+document.addEventListener('pointermove', e => {
+  const t = e.target.closest('[data-tip]');
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.innerHTML = t.dataset.tip; tip.style.opacity = 1;
+  const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+});
+
+const kpis = (el, items) => el.innerHTML = items.map(([v, l]) =>
+  `<div class="card kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+
+function bars(id, rows, unit = 'min') {
+  const max = Math.max(...rows.map(r => r[1]));
+  $(id).innerHTML = rows.map(([name, v]) =>
+    `<li><span class="name" title="${esc(name)}">${esc(name)}</span><span class="val">${nf.format(v)} ${unit}</span>
+     <span class="bar" style="width:${(100 * v / max).toFixed(1)}%"></span></li>`).join('');
+}
+const tags = (id, rows) => $(id).innerHTML = rows.map(([k, v]) => `<span>${esc(k)}<small>${nf.format(v)}</small></span>`).join('');
+
+// Resumen
+const K = D.kpi;
+$('range').textContent = `Historial del ${fmtDate(D.range[0])} al ${fmtDate(D.range[1])} · horas en horario peninsular`;
+kpis($('kpis'), [
+  [nf.format(K.musicH) + ' h', 'de música'],
+  [nf.format(K.podH) + ' h', 'de podcasts'],
+  [nf.format(K.streams), 'reproducciones'],
+  [nf.format(K.artists), 'artistas distintos'],
+  [nf.format(K.tracks), 'canciones distintas'],
+  [K.skipPct + ' %', 'saltadas antes de 30 s'],
+  [nf.format(K.bestDay[1]) + ' min', 'récord en un día · ' + fmtDate(K.bestDay[0])],
+  [nf.format(D.social[1]), `seguidores · sigues a ${D.social[0]}`],
+]);
+
+// Meses (apiladas música + podcast)
+const mMax = Math.max(...D.months.map(m => m[1] + m[2]));
+$('months').innerHTML = D.months.map(([k, m, p]) => {
+  const [y, mo] = k.split('-');
+  const label = `${MES[mo - 1]} ${y}`;
+  return `<div class="col" tabindex="0" aria-label="${label}: ${m} min música, ${p} min podcasts"
+    data-tip="<b>${label}</b><br>Música: ${nf.format(m)} min<br>Podcasts: ${nf.format(p)} min">
+    <i class="m" style="height:${100 * m / mMax}%"></i><i class="p" style="height:${100 * p / mMax}%"></i></div>`;
+}).join('');
+$('monthsX').innerHTML = D.months.map(([k]) => `<span>${MES[k.slice(5) - 1]}</span>`).join('');
+$('monthsT').innerHTML = '<tr><th>Mes</th><th class="n">Música</th><th class="n">Podcasts</th></tr>' +
+  D.months.map(([k, m, p]) => `<tr><td>${k}</td><td class="n">${nf.format(m)}</td><td class="n">${nf.format(p)}</td></tr>`).join('');
+
+// Mapa de calor
+const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const hMax = Math.max(...D.heat.flat());
+let html = '<span></span>' + Array.from({length: 24}, (_, h) => `<span class="h">${h % 3 ? '' : h}</span>`).join('');
+D.heat.forEach((row, d) => {
+  html += `<span>${DIAS[d]}</span>` + row.map((v, h) =>
+    `<span class="c" style="--a:${(0.06 + 0.94 * v / hMax).toFixed(2)}" data-tip="<b>${DIAS[d]} ${h}:00–${h + 1}:00</b><br>${nf.format(v)} min en el año" aria-label="${DIAS[d]} ${h}h: ${v} min"></span>`).join('');
+});
+$('heat').innerHTML = html;
+let peak = [0, 0]; D.heat.forEach((r, d) => r.forEach((v, h) => { if (v > D.heat[peak[0]][peak[1]]) peak = [d, h]; }));
+const byHour = Array.from({length: 24}, (_, h) => D.heat.reduce((s, r) => s + r[h], 0));
+const topHour = byHour.indexOf(Math.max(...byHour));
+$('heatNote').textContent = `Franja estrella: ${DIAS[peak[0]].toLowerCase()} a las ${peak[1]}:00. Hora con más música en general: ${topHour}:00. Más oscuro = más minutos.`;
+
+// Listas
+bars('topArtists', D.topArtists);
+bars('topTracks', D.topTracks);
+bars('topPlays', D.topPlays, 'veces');
+bars('topPods', D.topPods);
+bars('topEps', D.topEps);
+bars('plArtists', D.plArtists, 'temas');
+tags('searches', D.searches);
+tags('libArtists', D.libArtists);
+$('library').innerHTML = Object.entries({tracks:'canciones', albums:'álbumes', artists:'artistas', shows:'podcasts', episodes:'episodios'})
+  .map(([k, l]) => `<span>${nf.format(D.library[k])}<small>${l}</small></span>`).join('');
+
+// Playlists desplegables; la búsqueda filtra por nombre de lista o por canción/artista/álbum
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function renderPl(q = '') {
+  q = norm(q.trim());
+  let lists = 0, songs = 0;
+  const html = D.playlists.map(p => {
+    const nameHit = !q || norm(p.name).includes(q);
+    const items = nameHit ? p.items : p.items.filter(it => norm(it.slice(0, 3).join(' ')).includes(q));
+    if (!items.length) return '';
+    lists++; songs += items.length;
+    const rows = items.map(([t, a, al, d, url]) => `<tr>
+      <td>${url ? `<a href="${url}" target="_blank" rel="noopener">${esc(t)}</a>` : esc(t)}</td>
+      <td>${esc(a)}</td><td class="muted">${esc(al)}</td><td class="nw">${fmtDate(d)}</td></tr>`).join('');
+    const collab = p.collab ? ` · ${p.collab} colaborador${p.collab > 1 ? 'es' : ''}` : '';
+    return `<details class="pl"${q ? ' open' : ''}>
+      <summary><b>${esc(p.name)}</b><span>${nameHit ? '' : items.length + ' de '}${p.items.length} canciones · modificada ${fmtDate(p.date)}${collab}</span></summary>
+      <div class="scroll"><table><thead><tr><th>Canción</th><th>Artista</th><th>Álbum</th><th>Añadida</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </details>`;
+  }).join('');
+  $('pl').innerHTML = html || '<p class="note">Sin resultados</p>';
+  $('plCount').textContent = q ? `${songs} canciones en ${lists} playlists` : `${D.playlists.length} playlists · ${D.playlists.reduce((s, p) => s + p.items.length, 0)} canciones en total. Pulsa una para ver sus canciones.`;
+}
+let plTimer; renderPl();
+$('plq').addEventListener('input', e => { clearTimeout(plTimer); plTimer = setTimeout(() => renderPl(e.target.value), 150); });
+
+// Wrapped
+const W = D.wrapped;
+kpis($('wrappedK'), [
+  [nf.format(W.totalH) + ' h', 'escuchadas en 2025'],
+  [nf.format(W.uniqueArtists), 'artistas únicos'],
+  [nf.format(W.uniqueTracks), 'canciones únicas'],
+  [W.genres, 'géneros distintos'],
+  ['Top ' + W.topPct.toLocaleString('es-ES') + ' %', 'de fans de tu artista nº 1'],
+  [W.listeningAge + ' años', 'edad musical (sonido de los 60)'],
+  [W.night + ' %', 'escuchado de noche'],
+  [nf.format(W.trueCrimeMin) + ' min', 'de true crime'],
+  [nf.format(W.sportsMin) + ' min', 'de deportes'],
+  [W.club, 'tu club'],
+]);
+
+// Cápsula
+$('capsule').innerHTML = D.capsule.map(c => `
+  <div style="padding:8px 0;border-top:1px solid var(--line)">
+    <b>Semana del ${fmtDate(c.date)}</b> <span class="note">· ${c.h.toLocaleString('es-ES')} h</span>
+    <div class="note" style="color:var(--text)">${c.artists.map(esc).join(' · ')}</div>
+    <div class="note">${c.tracks.map(esc).join(' · ')}</div>
+  </div>`).join('');
+$('highlights').innerHTML = D.highlights.map(([d, t]) =>
+  `<li><time>${d.length > 7 ? fmtDate(d) : MES[d.slice(5) - 1] + ' ' + d.slice(0, 4)}</time><span>${esc(t)}</span></li>`).join('');
+</script>
+</body>
+</html>

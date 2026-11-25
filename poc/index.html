@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weave</title>
+<link rel="icon" href="/weave-icon.svg" type="image/svg+xml">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+svg { display: block; width: 100vw; height: 100vh; cursor: grab; }
+svg:active { cursor: grabbing; }
+.ui { position: fixed; top: 12px; left: 16px; right: 16px; z-index: 3; }
+.ui input { padding: 12px 16px; font-size: 16px; border-radius: 999px; background: var(--panel); }
+#results { position: absolute; left: 0; right: 0; max-width: 520px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+#results:empty { display: none; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+input { width: 100%; padding: 10px 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#results { list-style: none; margin: 6px 0 0; }
+#results li { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 6px; cursor: pointer; }
+#results li:hover, #results li:focus { background: var(--line); outline: none; }
+#results img { width: 32px; height: 32px; border-radius: 50%; }
+#results small, .muted { color: var(--muted); }
+.row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+button { background: var(--line); color: var(--text); border: 0; border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
+button:hover { background: #3a3f49; }
+button.primary { background: var(--accent); color: #111; font-weight: 600; }
+#status { color: var(--text); font-size: 13px; min-height: 1.4em; margin-bottom: 4px; }
+#foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
+#foot button { padding: 4px 10px; font-size: 12px; }
+/* Pila de carga: lateral izquierdo, ancho fijo; cada artista sale deslizándose hacia el grafo */
+#queue { position: fixed; left: 16px; top: 76px; bottom: 110px; width: 380px;  /* más ancho que las tarjetas: espacio para la salida */ z-index: 2; display: none; flex-direction: column; gap: 6px;
+         overflow: hidden; font-size: 13px; pointer-events: none;
+         mask-image: linear-gradient(to bottom, #000 75%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent); }
+#queue .head { width: 210px; color: var(--muted); font-size: 12px; padding: 0 4px 2px; }
+#queue .head b { color: var(--text); font-size: 15px; margin-right: 4px; }
+#queue .qi { flex: none; width: 210px; max-height: 40px; padding: 7px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+             transition: transform .4s ease, opacity .4s ease, max-height .35s ease .15s, padding .35s ease .15s, margin .35s ease .15s, border-width .35s ease .15s; }
+#queue .qi.now { border-color: var(--accent); color: var(--accent); }
+#queue .qi.now::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent);
+                         animation: pulse 1s ease-in-out infinite; }
+#queue .qi.out { transform: translateX(120px) scale(.92); opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -6px; border-width: 0; }
+#queue .qi.fail { text-decoration: line-through; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { #queue .qi { transition: none; } }
+#info { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 4; display: none; flex-direction: column; gap: 8px;
+        padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
+#info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
+#info h2 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
+#info .row { margin-top: auto; align-items: center; }
+.icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
+.icon svg { width: 20px; height: 20px; }
+body.panel .ui { right: 336px; }
+.ui .bar { display: flex; gap: 8px; }
+.ui select { flex: none; max-width: 220px; padding: 0 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+             border-radius: 999px; font: inherit; cursor: pointer; }
+.tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin: 4px 4px 0 0; font-size: 12px; }
+.mine { padding: 8px 10px; border-radius: 8px; background: #2b2612; color: var(--accent); }
+.new { padding: 8px 10px; border-radius: 8px; background: #12262b; color: #7fd3e6; }
+audio { width: 100%; height: 34px; flex: none; }
+#legend { position: fixed; left: 16px; bottom: 16px; z-index: 2; font-size: 12px; max-width: 320px; }
+#legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.node { cursor: pointer; }
+/* Arco de carga que recorre el círculo mientras se busca información de la banda */
+.spin { fill: none; stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-box: fill-box; transform-origin: center;
+        animation: spin 1.1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: pulse 1.6s ease-in-out infinite; } }
+@keyframes pulse { 50% { opacity: .3; } }
+.node text { pointer-events: none; user-select: none; }
+.link { stroke: #4a5060; stroke-opacity: .7; }
+.link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
+.node, .link { transition: opacity .25s; }
+.node.off { opacity: .07; pointer-events: none; }
+.link.off { opacity: .04; }
+#legend button { background: none; padding: 2px 6px; margin: 0 4px 2px 0; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; }
+#legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
+#pathBtn { flex: none; border-radius: 999px; padding: 0 16px; background: var(--panel); border: 1px solid var(--line); }
+#pathBtn.on { background: var(--accent); color: #111; border-color: var(--accent); }
+#tip { position: fixed; pointer-events: none; background: #000c; padding: 6px 9px; border-radius: 6px; font-size: 12px; z-index: 3; display: none; }
+</style>
+</head>
+<body>
+<div class="ui">
+  <div class="bar">
+    <input id="q" placeholder="Busca una banda: Marea, Michael Jackson…" autocomplete="off" aria-label="Buscar banda">
+    <button id="pathBtn" title="Camino entre dos artistas">De → a</button>
+    <select id="lists" aria-label="Generar el grafo de una de mis listas"><option value="">Mis listas</option></select>
+  </div>
+  <ul id="results"></ul>
+</div>
+<div id="info"></div>
+<div id="legend"></div>
+<div id="queue" aria-live="polite"></div>
+<div id="foot">
+  <div id="status"></div>
+  <button id="clear">Limpiar</button>
+  <button id="mute" title="Sonidos" aria-label="Activar o silenciar sonidos"></button>
+</div>
+<div id="tip"></div>
+<svg id="svg"></svg>
+
+<script>
+// Tonos pastel (Metal, Hip hop, Electrónica, Latina, Soul…, Pop, Rock)
+const PALETTE = ['#f5a9c8', '#f3c6a5', '#9de3d0', '#f5a3a3', '#c9bbf6', '#b5e3a1', '#a3c9f5'];
+// Familias de género, en orden fijo: cada una tiene siempre el mismo color. La primera regla que encaja gana.
+const FAMILIES = [
+  ['Metal', /metal|grindcore|thrash|doom/],
+  ['Hip hop', /hip ?hop|rap|trap|drill|grime/],
+  ['Electrónica', /electr|house|techno|trance|edm|dubstep|drum and bass|ambient|synth|^dance$|idm/],
+  ['Latina / Flamenco', /latin|flamenco|rumba|salsa|reggaet|cumbia|bachata|merengue|tango|bolero|ranchera|copla|son cubano/],
+  ['Soul / Funk / Jazz / Blues', /soul|funk|r&b|rhythm and blues|disco|jazz|blues|gospel|motown|swing/],
+  ['Pop', /pop|dance-pop|cantautor|singer-songwriter|chanson|schlager|variété/],
+  ['Rock', /rock|punk|grunge|indie|alternativ|britpop|emo|garage|shoegaze|post-|psychedel/],
+];
+// "blues rock", "pop rock", "hard rock"… son rock antes que su prefijo
+const family = g => /rock$|rock and roll|rock urbano/.test(g) ? 'Rock' : (FAMILIES.find(([, re]) => re.test(g)) || ['Otros'])[0];
+const OTHER = '#c0c6cf';
+const MAX_LINKS = 5;
+const ends = l => [l.source.id ?? l.source, l.target.id ?? l.target];
+const degree = n => links.filter(l => ends(l).includes(n.id)).length;
+const linked = (a, b) => links.some(l => { const [s, t] = ends(l); return s === a.id && t === b.id || s === b.id && t === a.id; });
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf = new Intl.NumberFormat('es-ES');
+const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+const api = async url => { const r = await fetch(url); const j = await r.json(); if (j && j.error) throw new Error(j.error); return j; };
+const status = t => $('status').textContent = t;
+
+let PROFILE = {};
+const nodes = [], links = [], byId = new Map(), byName = new Map(), cache = new Map();
+// Clave por nombre normalizado: Deezer tiene fichas duplicadas ("B.B. King" / "B.B.King") con distinto id
+const key = a => norm(a.name) || 'id' + a.id;
+const inMap = a => byId.has(a.id) || byName.has(key(a));
+const genreColor = new Map(FAMILIES.map(([f], i) => [f, PALETTE[i]]).concat([['Otros', OTHER]]));
+const colorOf = g => genreColor.get(genreColor.has(g) ? g : family(g));
+const mine = name => { const k = norm(name); return k && PROFILE[k]; };
+
+// ---------- Dibujo ----------
+const svg = d3.select('#svg');
+const root = svg.append('g');
+const gLinks = root.append('g'), gNodes = root.append('g');
+let k = 1;
+const zoom = d3.zoom().scaleExtent([0.08, 4]).on('zoom', e => {
+  if (e.sourceEvent) autoFit = false;  // el usuario ha tocado el zoom: no le movemos la vista
+  root.attr('transform', e.transform);
+  k = e.transform.k;
+  gNodes.selectAll('text').attr('display', k < 0.6 ? 'none' : null);
+});
+svg.call(zoom).on('dblclick.zoom', null);
+
+const sim = d3.forceSimulation(nodes)
+  // Distancia según el tamaño de los dos círculos: así no se solapan aunque lleven el nombre dentro
+  .force('link', d3.forceLink(links).id(d => d.id)
+    .distance(l => radius(l.source) + radius(l.target) + 70).strength(0.6))
+  .force('charge', d3.forceManyBody().strength(d => -300 - 8 * radius(d)).distanceMax(700))
+  .force('collide', d3.forceCollide(d => radius(d) + 14).strength(1))
+  .force('gx', d3.forceX(d => anchor(d).x).strength(d => d.genre ? 0.012 : 0))
+  .force('gy', d3.forceY(d => anchor(d).y).strength(d => d.genre ? 0.012 : 0))
+  .force('cx', d3.forceX(() => innerWidth / 2).strength(0.008))  // las bandas sueltas no se alejan sin fin
+  .force('cy', d3.forceY(() => innerHeight / 2).strength(0.012))
+  .on('tick', tick)
+  .on('end', () => { if (wantFit || autoFit) { wantFit = false; fitIfNeeded(); } });
+let wantFit = false, autoFit = false;  // autoFit: reencuadrar mientras carga una lista, hasta que el usuario mueva el mapa
+setInterval(() => { if (autoFit) fitIfNeeded(); }, 2000);
+
+// Cada género tiene un ancla en un círculo grande: acerca entre sí las bandas del mismo estilo.
+function anchor(d) {
+  const present = new Set(nodes.map(n => n.genre));
+  const list = [...genreColor.keys()].filter(g => present.has(g));
+  const i = Math.max(0, list.indexOf(d.genre)), n = Math.max(list.length, 1);
+  const R = n === 1 ? 0 : 140 + 30 * n;
+  return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
+}
+function radius(d) {
+  const p = mine(d.name);
+  const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
+  const size = (d.origin ? base + 8 : base) + (p ? Math.min(10, Math.sqrt(p.min) / 3) : 0);
+  return Math.max(size, label(d).r);
+}
+
+// Nombre dentro del círculo: hasta 2 líneas equilibradas; el radio cubre la caja del texto.
+const ctx2d = document.createElement('canvas').getContext('2d');
+const LINE_H = 12;
+function label(d) {
+  if (d._label && d._label.origin === d.origin) return d._label;
+  const font = d.origin ? 'bold 12px system-ui, sans-serif' : '11px system-ui, sans-serif';
+  ctx2d.font = font;
+  const w = t => ctx2d.measureText(t).width;
+  const words = d.name.split(/\s+/);
+  let lines = [d.name];
+  if (words.length > 1 && w(d.name) > 70) {  // parte por la palabra que mejor equilibra las dos líneas
+    let best = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+      const m = Math.max(w(a), w(b));
+      if (m < best) { best = m; lines = [a, b]; }
+    }
+  }
+  const tw = Math.max(...lines.map(w)), th = lines.length * LINE_H;
+  return d._label = { lines, font, origin: d.origin, r: Math.hypot(tw / 2, th / 2) + 4 };
+}
+
+function render() {
+  const l = gLinks.selectAll('line').data(links, d => d.source.id + '-' + d.target.id);
+  l.exit().remove();
+  l.enter().append('line').merge(l)
+    .attr('class', d => 'link' + (d.path ? ' path' : '') + (hidden.has(d.source.genre) || hidden.has(d.target.genre) ? ' off' : ''));
+
+  const n = gNodes.selectAll('g.node').data(nodes, d => d.id);
+  n.exit().remove();
+  const e = n.enter().append('g')
+    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; sfx.select(); select(d); })  // al interactuar, la vista deja de moverse sola
+    .on('dblclick', (ev, d) => { ev.stopPropagation(); expand(d); })
+    .on('mousemove', (ev, d) => tipShow(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
+    .call(d3.drag()
+      .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+      .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  e.append('circle').attr('class', 'ring');
+  e.append('circle').attr('class', 'spin');
+  e.append('circle').attr('class', 'dot');
+  e.append('text').attr('text-anchor', 'middle').attr('class', 'in');
+  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : ''));
+  // Sin género todavía: gris con borde punteado (se colorea una sola vez, al llegar el género)
+  all.select('.dot').attr('r', radius).attr('fill', d => d.genre ? colorOf(d.genre) : 'var(--panel)')
+    .attr('stroke', d => d.selected ? '#fff' : d.genre ? 'none' : 'var(--muted)')
+    .attr('stroke-dasharray', d => d.genre || d.selected ? null : '3 3').attr('stroke-width', d => d.selected ? 3 : 1.5);
+  // Aro dorado = ya está en tu huella de Spotify
+  all.select('.ring').attr('r', d => radius(d) + 4).attr('fill', 'none')
+    .attr('stroke', d => mine(d.name) ? 'var(--accent)' : 'none').attr('stroke-width', d => d.origin ? 3 : 2)
+    .attr('stroke-dasharray', d => d.exhausted ? '2 3' : null);
+  all.select('.spin').attr('r', d => radius(d) + 8)
+    .attr('stroke-dasharray', d => { const c = 2 * Math.PI * (radius(d) + 8); return `${c * 0.28} ${c}`; })
+    .attr('display', d => d.loading || (!d.genre && !d.failed) ? null : 'none');
+  all.select('text').each(function (d) {
+    const L = label(d);
+    d3.select(this).style('font', L.font).attr('fill', d.genre ? '#15171c' : 'var(--text)').attr('display', k < 0.6 ? 'none' : null)
+      .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
+      .attr('dy', (t, i) => i === 0 ? (-(L.lines.length - 1) * LINE_H / 2 + 4) : LINE_H).text(t => t);
+  });
+
+  sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
+  renderLegend();
+}
+
+// Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más allá de 1.2×)
+function fitIfNeeded() {
+  if (!nodes.length) return;
+  const t = d3.zoomTransform(svg.node());
+  const left = stack.visible ? 240 : 20;
+  const x0 = d3.min(nodes, d => d.x - radius(d)), x1 = d3.max(nodes, d => d.x + radius(d));
+  const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
+  const out = nodes.some(d => { const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;  // cuenta el borde del círculo, no solo el centro
+    return sx - r < left || sx + r > innerWidth - 330 || sy - r < 70 || sy + r > innerHeight - 90; });
+  if (!out) return;
+  const w = innerWidth - 340 - left, h = innerHeight - 180;  // deja libres la barra, la pila, la ficha y el pie
+  // nunca por debajo de 0.6: el encuadre automático no debe ocultar los nombres
+  const s = Math.max(0.6, Math.min(1.2, 0.9 * Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80))));
+  svg.transition().duration(700).call(zoom.transform,
+    d3.zoomIdentity.translate(left + w / 2, 80 + h / 2).scale(s).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
+}
+
+function tick() {
+  gLinks.selectAll('line').attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  gNodes.selectAll('g.node').attr('transform', d => `translate(${d.x},${d.y})`);
+}
+
+// Leyenda = filtro: pulsar un género lo oculta o lo muestra
+const hidden = new Set();
+function renderLegend() {
+  const present = new Set(nodes.map(d => d.genre));
+  $('legend').innerHTML = [...genreColor].filter(([g]) => present.has(g)).map(([g, c]) =>
+    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${c}"></i>${esc(g)}</button>`).join('');
+  $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
+  });
+}
+
+function tipShow(ev, d) {
+  const p = mine(d.name);
+  $('tip').innerHTML = `<b>${esc(d.name)}</b><br>${esc(d.sub || d.genre || 'cargando género…')}` +
+    (p ? `<br><span style="color:var(--accent)">En tu huella</span>` : '<br>Nuevo para ti');
+  Object.assign($('tip').style, { display: 'block', left: ev.clientX + 14 + 'px', top: ev.clientY + 14 + 'px' });
+}
+
+// ---------- Datos ----------
+async function getArtist(id) {
+  if (!cache.has(id)) cache.set(id, api('/api/artist/' + id).catch(e => { cache.delete(id); throw e; }));
+  return cache.get(id);
+}
+
+function addNode(a, near, origin = false) {
+  let n = byId.get(a.id) || byName.get(key(a));
+  if (n) { if (origin) n.origin = true; return n; }
+  n = { id: a.id, name: a.name, fans: a.fans, genre: a.genres ? family(a.genres[0]) : null, sub: a.genres ? a.genres[0] : '', origin, shown: 0,
+        x: near ? near.x + (Math.random() - .5) * 60 : innerWidth / 2 + (Math.random() - .5) * 200,
+        y: near ? near.y + (Math.random() - .5) * 60 : innerHeight / 2 + (Math.random() - .5) * 200 };
+  nodes.push(n); byId.set(a.id, n); byName.set(key(n), n);
+  return n;
+}
+// Reparte las bandas nuevas alrededor de su origen, hacia fuera (lejos de quien trajo a esa banda)
+function fanAngles(n, count) {
+  const out = n.parent ? Math.atan2(n.y - n.parent.y, n.x - n.parent.x) : -Math.PI / 2;
+  const arc = n.parent ? Math.PI * 1.2 : 2 * Math.PI;  // 216° hacia fuera, o círculo completo si es origen
+  return Array.from({length: count}, (_, i) => n.parent ? out - arc / 2 + arc * (i + 0.5) / count : out + arc * i / count);
+}
+function placeAt(n, c, ang) {
+  const dist = radius(n) + radius(c) + 70;
+  c.x = n.x + dist * Math.cos(ang); c.y = n.y + dist * Math.sin(ang);
+}
+// Nodo a partir de la ficha completa: nunca entra al grafo una banda a medio cargar
+function addFull(full, near, origin = false) {
+  const n = addNode(full, near, origin);
+  n.sub = full.genres[0]; n.genre = family(n.sub);
+  return n;
+}
+function addLink(a, b) {
+  if (linked(a, b)) return;
+  links.push({ source: a, target: b, cross: false });
+}
+
+// Rellena el género real de un nodo en segundo plano (la primera vez tarda: MusicBrainz va a 1 petición/s)
+async function hydrate(n) {
+  try {
+    const a = await getArtist(n.id);
+    n.sub = a.genres[0];
+    if (n.genre !== family(n.sub)) { n.genre = family(n.sub); render(); }
+    return a;
+  } catch (e) { n.failed = true; render(); status('Error con ' + n.name + ': ' + e.message); }
+}
+
+async function expand(n) {
+  if (n.loading) return;
+  select(n);
+  n.loading = true; render();  // el arco gira en la banda que se está explorando
+  const a = await hydrate(n);
+  if (!a) { n.loading = false; render(); return; }
+  const slots = MAX_LINKS - degree(n);
+  const picks = a.related.filter(r => !inMap(r)).slice(0, Math.max(0, slots));
+  const angles = fanAngles(n, picks.length);
+  const fulls = picks.map(r => getArtist(r.id).catch(() => null));  // en paralelo; el servidor respeta el ritmo de cada API
+  let added = 0;
+  for (let i = 0; i < picks.length; i++) {
+    const full = await fulls[i];
+    if (!byId.has(n.id)) break;                       // la quitaron mientras cargaba
+    if (!full || inMap(full) || degree(n) >= MAX_LINKS) continue;
+    const c = addFull(full, n); c.parent = n;
+    placeAt(n, c, angles[i]);
+    addLink(n, c); added++;
+    render(); sfx.join(i);
+  }
+  n.loading = false;
+  const full = degree(n) >= MAX_LINKS;
+  n.exhausted = full || !added;
+  if (!added) sfx.nope();
+  status(added ? '' : full ? `${n.name} no admite más conexiones` : `${n.name}: sin relacionadas nuevas`);
+  render(); if (n.selected) select(n);  // refresca el botón Explorar del panel
+  wantFit = true;  // encuadra cuando la simulación se asiente
+}
+
+// ---------- Sonidos (sintetizados con Web Audio, sin archivos) ----------
+const sfx = (() => {
+  let ctx, muted = localStorage.getItem('em-mute') === '1';
+  // Burbuja: seno con barrido rápido de tono (sube = «pop», baja = «bloop» hacia dentro) y caída muy corta
+  function bubble(freq, at = 0, ratio = 2.6, dur = 0.13, vol = 0.16) {
+    if (muted) return;
+    ctx ??= new AudioContext();
+    const f = freq * (0.92 + Math.random() * 0.16);  // variación para que no suenen idénticas
+    const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * ratio, t + dur * 0.55);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const btn = () => { $('mute').textContent = muted ? '🔇' : '🔊'; };
+  queueMicrotask(() => { btn(); $('mute').onclick = () => { muted = !muted; localStorage.setItem('em-mute', muted ? '1' : '0'); btn(); if (!muted) bubble(700); }; });
+  return {
+    open: n => { for (let i = 0; i < n; i++) bubble(380 + i * 70, i * 0.075 + Math.random() * 0.02); },
+    nope: () => bubble(260, 0, 0.55, 0.16, 0.14),
+    remove: () => { bubble(700, 0, 0.35, 0.16); bubble(520, 0.07, 0.35, 0.16, 0.1); bubble(380, 0.14, 0.35, 0.18, 0.08); },
+    select: () => bubble(900, 0, 1.8, 0.07, 0.09),
+    join: i => bubble(420 + (i % 7) * 60, 0, 2.2, 0.09, 0.07),  // burbuja suave por cada artista que entra
+    chord: () => { for (let i = 0; i < 7; i++) bubble(300 + i * 90, i * 0.06 + Math.random() * 0.03, 2.4, 0.12, 0.12); },
+  };
+})();
+
+const ICON = {
+  // Iconos simplificados: barras de ecualizador (Deezer) y ondas (Spotify)
+  deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
+  spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
+};
+function showPanel(on) { $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on); }
+
+async function select(n) {
+  nodes.forEach(m => m.selected = m === n); render();
+  const a = await getArtist(n.id).catch(() => null);
+  if (!a || !n.selected) return;  // si mientras cargaba se deseleccionó, no reabrir la ficha
+  const p = mine(a.name);
+  showPanel(true);
+  $('info').innerHTML = `
+    ${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}
+    <h2>${esc(a.name)}</h2>
+    ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
+    <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
+    ${p ? `<div class="mine">En tu huella</div>` : `<div class="new">Nuevo para ti</div>`}
+    ${a.preview ? `<audio controls src="${esc(a.preview)}" title="${esc(a.previewTitle)}"></audio>` : ''}
+    <div class="row"><button class="primary" id="more" ${degree(n) >= MAX_LINKS ? 'disabled style="opacity:.4;cursor:default"' : ''}>Explorar</button>
+      <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Abrir en Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
+      <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Buscar en Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a>
+      <button class="icon" id="del" title="Quitar (Supr)" aria-label="Quitar del mapa">${ICON.trash}</button></div>`;
+  $('more').onclick = () => expand(n);
+  $('del').onclick = () => removeNode(n);
+}
+
+async function addOrigin(r) {
+  status(`Cargando ${r.name}…`);
+  const full = await getArtist(r.id).catch(() => null);
+  if (!full) { status(`No se pudo cargar ${r.name}`); return; }
+  const n = addFull(full, null, true);
+  render(); sfx.join(0); select(n);
+  status('');
+}
+
+// ---------- Interfaz ----------
+let timer;
+$('q').addEventListener('input', e => {
+  clearTimeout(timer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { $('results').innerHTML = ''; return; }
+  timer = setTimeout(async () => {
+    const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(err => (status(err.message), []));
+    const best = new Map();
+    raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
+    const res = raw.filter(r => best.get(key(r)) === r);
+    $('results').innerHTML = res.map((r, i) => `<li tabindex="0" data-i="${i}">
+      ${r.picture ? `<img src="${esc(r.picture)}" alt="">` : ''}<div>${esc(r.name)}<br>
+      ${mine(r.name) ? '<small style="color:var(--accent)">en tu huella</small>' : ''}</div></li>`).join('');
+    $('results').querySelectorAll('li').forEach(li => {
+      const go = () => { $('results').innerHTML = ''; $('q').value = ''; pathFrom !== undefined ? pathPick(res[li.dataset.i]) : addOrigin(res[li.dataset.i]); };
+      li.onclick = go; li.onkeydown = ev => ev.key === 'Enter' && go();
+    });
+  }, 250);
+});
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') $('results').querySelector('li')?.click(); });
+
+// Quita una banda y las que solo llegaban al mapa a través de ella (las que siguen unidas a un origen se quedan)
+function removeNode(n) {
+  if (!byId.has(n.id)) return;
+  const rest = nodes.filter(m => m !== n);
+  const restLinks = links.filter(l => !ends(l).includes(n.id));
+  const adj = new Map(rest.map(m => [m.id, []]));
+  restLinks.forEach(l => { const [s, t] = ends(l); adj.get(s).push(t); adj.get(t).push(s); });
+  const keep = new Set(rest.filter(m => m.origin || m.inList).map(m => m.id)), queue = [...keep];
+  while (queue.length) for (const id of adj.get(queue.pop())) if (!keep.has(id)) { keep.add(id); queue.push(id); }
+  const gone = rest.filter(m => !keep.has(m.id));
+  nodes.splice(0, nodes.length, ...rest.filter(m => keep.has(m.id)));
+  links.splice(0, links.length, ...restLinks.filter(l => ends(l).every(id => keep.has(id))));
+  byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
+  nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
+  showPanel(false); $('tip').style.display = 'none';
+  sfx.remove();
+  status('');
+  render();
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Delete' || e.target.tagName === 'INPUT') return;
+  const sel = nodes.find(m => m.selected);
+  if (sel) removeNode(sel);
+});
+
+function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
+$('clear').onclick = () => { listRun++; clearAll(); stack.clear(); };
+
+// ---------- Grafo de una lista ----------
+// Cada artista de la lista es un círculo; sus relaciones entre sí se vuelven enlaces
+// (máx. MAX_LINKS por banda, empezando por las más parecidas).
+let listRun = 0;
+// Cola: los datos se descargan de 4 en 4 por detrás, pero los artistas entran al grafo de uno en uno y en orden
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const stack = {
+  start(names) {
+    const q = $('queue');
+    q.innerHTML = `<div class="head"><b>${names.length}</b>en cola</div>` +
+      names.map((n, i) => `<div class="qi" data-i="${i}" title="${esc(n)}">${esc(n)}</div>`).join('');
+    q.style.display = 'flex';
+    this.left = names.length;
+  },
+  now(i) { $('queue').querySelector(`.qi[data-i="${i}"]`)?.classList.add('now'); },
+  // sale de la pila (ok = entró al grafo; si no, se tacha antes de irse)
+  done(i, ok = true) {
+    const el = $('queue').querySelector(`.qi[data-i="${i}"]`);
+    if (!el) return;
+    el.classList.remove('now');
+    if (!ok) el.classList.add('fail');
+    requestAnimationFrame(() => el.classList.add('out'));
+    setTimeout(() => el.remove(), 700);
+    this.left--;
+    const h = $('queue').querySelector('.head b'); if (h) h.textContent = Math.max(0, this.left);
+  },
+  end() { setTimeout(() => { if (this.left <= 0) $('queue').style.display = 'none'; }, 700); },
+  clear() { this.left = 0; $('queue').style.display = 'none'; $('queue').innerHTML = ''; },
+  get visible() { return $('queue').style.display === 'flex'; },
+};
+
+// Une a n con los miembros de la lista ya presentes, mientras ambos tengan hueco
+function joinList(n, members) {
+  const near = [];
+  for (const m of members) {
+    if (m === n || byId.get(m.id) !== m || linked(n, m)) continue;  // ignora las que se han quitado durante la carga
+    const r1 = n.relOrder.indexOf(key(m)), r2 = m.relOrder?.indexOf(key(n)) ?? -1;
+    if (r1 < 0 && r2 < 0) continue;
+    near.push([Math.min(...[r1, r2].filter(x => x >= 0)), m]);  // rango de parecido: menor = más parecido
+  }
+  near.sort((x, y) => x[0] - y[0]);
+  for (const [, m] of near) if (degree(n) < MAX_LINKS && degree(m) < MAX_LINKS) addLink(n, m);
+  return near.find(([, m]) => linked(n, m))?.[1];
+}
+
+async function loadList(pl) {
+  const run = ++listRun;
+  clearAll(); autoFit = true;
+  const members = [], names = pl.artists.map(([name]) => name);
+  stack.start(names);
+  // Descarga anticipada (4 a la vez): resolver en Deezer + relacionadas
+  const jobs = new Map();
+  let next = 0;
+  // Ficha completa (género, relacionadas, preview) antes de salir de la cola
+  const fetchOne = async name => {
+    const hit = await api('/api/resolve?name=' + encodeURIComponent(name)).catch(() => null);
+    const full = hit ? await getArtist(hit.id).catch(() => null) : null;
+    return { hit, full };
+  };
+  const worker = async () => { while (next < names.length && run === listRun) { const nm = names[next++]; jobs.get(nm).resolve(await fetchOne(nm)); } };
+  names.forEach(nm => { let resolve; const p = new Promise(r => resolve = r); jobs.set(nm, { p, resolve }); });
+  for (let i = 0; i < 4; i++) worker();
+
+  // Incorporación en orden, una a una
+  for (let i = 0; i < names.length; i++) {
+    if (run !== listRun) return;
+    stack.now(i);
+    const { hit, full } = await jobs.get(names[i]).p;
+    const rel = full ? full.related : [];
+    if (run !== listRun) return;
+    if (!hit || !full) { stack.done(i, false); continue; }  // sin ficha completa no entra al grafo
+    const existed = inMap(hit);
+    if (existed && members.includes(byId.get(hit.id) || byName.get(key(hit)))) { stack.done(i); continue; }  // duplicado dentro de la lista
+    const n = addFull(full, null); n.inList = true; n.listSongs = pl.artists[i][1];  // si ya estaba (p. ej. por doble clic) se reutiliza
+    n.relOrder = rel.map(key); n.related = new Set(rel.flatMap(r => [r.id, key(r)]));
+    const anchorNode = joinList(n, members);
+    members.push(n);
+    // Posición: junto a su banda más parecida ya presente; si no tiene, en la periferia
+    const ang = Math.random() * 2 * Math.PI;
+    if (existed) {}  // ya tiene sitio en el mapa
+    else if (anchorNode) { const d = radius(anchorNode) + radius(n) + 60; n.x = anchorNode.x + d * Math.cos(ang); n.y = anchorNode.y + d * Math.sin(ang); }
+    else { const R = 220 + 6 * Math.sqrt(members.length) * 10; n.x = innerWidth / 2 + R * Math.cos(ang); n.y = innerHeight / 2 + R * Math.sin(ang); }
+    render(); sfx.join(i); stack.done(i);
+    await sleep(names.length > 80 ? 120 : 220);  // ritmo visual: listas grandes, más rápido
+  }
+  stack.end();
+  wantFit = true; sfx.chord();
+  status('');
+  autoFit = false;
+}
+api('/api/playlists').then(pls => {
+  $('lists').innerHTML = '<option value="">Mis listas</option>' +
+    pls.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
+  $('lists').onchange = e => { if (e.target.value !== '') loadList(pls[e.target.value]); e.target.blur(); };
+});
+
+// ---------- Camino de x a y ----------
+// Botón «De → a»: el buscador pide primero el origen y luego el destino; el servidor busca la cadena
+// de relacionadas que los une y los artistas entran uno a uno, ya completos, unidos por una línea dorada.
+let pathFrom;  // undefined = modo normal; null = esperando origen; objeto = esperando destino
+const PLACEHOLDER = $('q').placeholder;
+function pathMode(on) {
+  pathFrom = on ? null : undefined;
+  $('pathBtn').classList.toggle('on', on);
+  $('q').placeholder = on ? 'Camino: ¿desde qué artista?' : PLACEHOLDER;
+  if (on) $('q').focus();
+}
+$('pathBtn').onclick = () => pathMode(pathFrom === undefined);
+$('q').addEventListener('keydown', e => { if (e.key === 'Escape' && pathFrom !== undefined) pathMode(false); });
+function pathPick(r) {
+  if (!pathFrom) { pathFrom = r; $('q').placeholder = `Camino: de ${r.name} a…`; $('q').focus(); sfx.select(); return; }
+  const from = pathFrom; pathMode(false); runPath(from, r);
+}
+async function runPath(a, b) {
+  const run = ++listRun;
+  clearAll(); autoFit = true;
+  stack.start([`${a.name} → ${b.name}`]); stack.now(0);
+  const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
+  if (run !== listRun) return;
+  if (!path) { stack.done(0, false); stack.end(); sfx.nope(); status(`No encuentro un camino entre ${a.name} y ${b.name}`); return; }
+  const ids = path.map(x => x.id);
+  stack.clear(); stack.start(path.map((x, i) => x.name || (i ? b.name : a.name)));
+  let prev = null;
+  for (let i = 0; i < ids.length; i++) {
+    stack.now(i);
+    const full = await getArtist(ids[i]).catch(() => null);
+    if (run !== listRun) return;
+    if (!full) { stack.done(i, false); continue; }
+    const n = addFull(full, null, i === 0 || i === ids.length - 1);
+    // en fila de izquierda a derecha; luego la simulación lo curva a su gusto
+    n.x = innerWidth * 0.12 + (innerWidth * 0.6) * i / Math.max(1, ids.length - 1); n.y = innerHeight / 2 + (i % 2 ? 40 : -40);
+    if (prev) { addLink(prev, n); links[links.length - 1].path = true; }
+    prev = n;
+    render(); sfx.join(i); stack.done(i);
+    await sleep(300);
+  }
+  stack.end(); sfx.chord(); wantFit = true;
+  status(`${a.name} → ${b.name}: ${ids.length - 2} artista${ids.length - 2 === 1 ? '' : 's'} de por medio`);
+  autoFit = false;
+}
+
+// Clic en el fondo: quita la selección y cierra la ficha (pan/arrastre no cuenta como clic: d3.zoom lo filtra)
+svg.on('click', () => { nodes.forEach(m => m.selected = false); showPanel(false); $('tip').style.display = 'none'; render(); });
+
+// ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
+async function originsFromUrl() {
+  const names = (new URLSearchParams(location.search).get('origen') || '').split(',').map(s => s.trim()).filter(Boolean);
+  for (const name of names) {
+    const res = await api('/api/search?q=' + encodeURIComponent(name)).catch(() => []);
+    if (res[0]) await addOrigin(res.find(r => norm(r.name) === norm(name)) || res[0]);
+  }
+}
+
+api('/api/profile').then(p => { PROFILE = p; render(); })
+  .catch(() => status('No se pudo cargar tu huella de Spotify'))
+  .then(originsFromUrl);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Datos personales y generados: nunca al repositorio
+resources/
+web/
+data/
+poc/cache/
+# Python y herramientas
+__pycache__/
+*.pyc
+.superpowers/
