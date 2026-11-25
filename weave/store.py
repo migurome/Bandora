@@ -108,6 +108,41 @@ class Store:
                 _merge(c, survivor, other)
             return survivor
 
+    # ---------- cola de rastreo ----------
+    def enqueue(self, artist_id: int, target_level: int, hops: int) -> bool:
+        """Encola o sube de objetivo; devuelve True si hay trabajo nuevo."""
+        with self._write() as c:
+            row = c.execute("SELECT target_level FROM crawl WHERE artist_id=?", (artist_id,)).fetchone()
+            if row is None:
+                c.execute("INSERT INTO crawl (artist_id, target_level, hops) VALUES (?, ?, ?)", (artist_id, target_level, hops))
+                return True
+            if row[0] < target_level:
+                c.execute("""UPDATE crawl SET target_level=?, hops=MIN(hops, ?), state='pending', attempts=0, error=NULL
+                             WHERE artist_id=?""", (target_level, hops, artist_id))
+                return True
+            return False
+
+    def next_crawl(self, skip=()):
+        """Siguiente pendiente: primero los más cercanos a la semilla, luego los menos intentados y los más populares."""
+        rows = self._read("""SELECT c.artist_id, c.target_level, c.hops FROM crawl c JOIN artist a ON a.id = c.artist_id
+                             WHERE c.state='pending' ORDER BY c.hops, c.attempts, a.fans DESC LIMIT ?""", (len(skip) + 1,))
+        return next((tuple(r) for r in rows if r[0] not in skip), None)
+
+    def crawl_done(self, artist_id: int):
+        with self._write() as c:
+            c.execute("UPDATE crawl SET state='done', error=NULL WHERE artist_id=?", (artist_id,))
+
+    def crawl_failed(self, artist_id: int, error: str, max_attempts=3):
+        with self._write() as c:
+            c.execute("""UPDATE crawl SET attempts=attempts+1, error=?,
+                         state=CASE WHEN attempts+1 >= ? THEN 'error' ELSE 'pending' END WHERE artist_id=?""",
+                      (error[:500], max_attempts, artist_id))
+
+    def counts(self) -> dict:
+        levels = dict(self._read("SELECT level, COUNT(*) FROM artist GROUP BY level"))
+        states = dict(self._read("SELECT state, COUNT(*) FROM crawl GROUP BY state"))
+        return {"levels": levels, "crawl": states}
+
     # ---------- lecturas ----------
     def by_source(self, source: str, ext_id) -> int | None:
         rows = self._read("SELECT artist_id FROM source_id WHERE source=? AND ext_id=?", (source, str(ext_id)))
