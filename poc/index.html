@@ -32,7 +32,6 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
 #foot button { padding: 4px 10px; font-size: 12px; vertical-align: middle; }
 #foot button:disabled { opacity: .35; cursor: default; }
-#info audio { width: 100%; height: 34px; flex: none; }
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
 #busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
 #busy.on { display: block; }
@@ -46,25 +45,6 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 @keyframes weave { to { stroke-dashoffset: -40; } }
 @keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n { animation: pulse 1.6s ease-in-out infinite; } }
-#info { position: fixed; top: 0; right: 0; bottom: 0; width: 320px;  /* a toda altura; la barra se encoge para dejarle sitio */ z-index: 4; display: none; flex-direction: column; gap: 8px;
-        padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
-/* Ficha plegable: se desliza a la derecha y deja una pestaña para recuperarla */
-#info { transition: transform .3s ease; }
-body.folded #info { transform: translateX(calc(100% + 2px)); }
-#fold { position: fixed; bottom: 16px; right: 320px; z-index: 4; display: none; width: 26px; height: 48px; padding: 0;
-        border-radius: 8px 0 0 8px; background: var(--panel); border: 1px solid var(--line); border-right: 0;
-        color: var(--muted); transition: right .3s ease; }
-#fold svg { width: 16px; height: 16px; transition: transform .3s ease; }
-body.panel #fold { display: grid; place-items: center; }
-body.folded #fold { right: 0; }
-body.folded #fold svg { transform: rotate(180deg); }
-.ui, #busy.bar { transition: right .3s ease; }
-body.panel:not(.folded) .ui { right: 336px; }
-body.panel:not(.folded) #busy.bar { right: 350px; }
-@media (prefers-reduced-motion: reduce) { #info, #fold, #fold svg { transition: none; } }
-#info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
-#info h2 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
-#info .row { margin-top: auto; align-items: center; }
 .icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
 .icon svg { width: 20px; height: 20px; }
 .ui .bar { display: flex; gap: 8px; }
@@ -81,6 +61,13 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: pulse 1.6s ease-in-out infinite; } }
 @keyframes pulse { 50% { opacity: .3; } }
 .node text { pointer-events: none; user-select: none; }
+/* Menú del círculo ampliado: Spotify, Deezer, play/pausa, siguiente */
+.opt { cursor: pointer; animation: pop .18s ease-out; }
+.opt > circle { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.opt:hover > circle { stroke: var(--accent); }
+.opt .ico { color: var(--text); pointer-events: none; }
+@keyframes pop { from { opacity: 0; transform: scale(.4); } }
+.node .dot, .node .pic, .node clipPath circle { transition: r .2s; }
 /* Artista sonando: foto apagada y ▶ encima */
 .node .pic { transition: filter .3s; }
 .node.playing .pic { filter: brightness(.4); }
@@ -113,8 +100,6 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
   </div>
   <ul id="results"></ul>
 </div>
-<div id="info"></div>
-<button id="fold" aria-label="Plegar o desplegar la ficha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
 <div id="legend"></div>
 <div id="busy" role="status" aria-label="Cargando">
   <svg viewBox="0 0 128 128">
@@ -219,7 +204,8 @@ const photoMode = true;  // los círculos muestran la foto del artista; el color
 function radius(d) {
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
   const size = d.origin ? base + 8 : base;
-  return photoMode ? Math.max(size + 6, 26) : Math.max(size, label(d).r);
+  const r = photoMode ? Math.max(size + 6, 26) : Math.max(size, label(d).r);
+  return d.open ? r * 1.8 : r;  // ampliado con su menú
 }
 
 // Nombre dentro del círculo: hasta 2 líneas equilibradas; el radio cubre la caja del texto.
@@ -253,7 +239,7 @@ function render() {
   const n = gNodes.selectAll('g.node').data(nodes, d => d.id);
   n.exit().remove();
   const e = n.enter().append('g')
-    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; sfx.select(); select(d); })  // al interactuar, la vista deja de moverse sola
+    .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })  // al interactuar, la vista deja de moverse sola
     .on('dblclick', (ev, d) => { ev.stopPropagation(); expand(d); })
     .on('mousemove', (ev, d) => tipShow(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
     .call(d3.drag()
@@ -270,6 +256,7 @@ function render() {
   e.append('text').attr('text-anchor', 'middle').attr('class', 'in');
   const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
   all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
+  renderMenus(all);
   // Sin género todavía: gris con borde punteado (se colorea una sola vez, al llegar el género)
   all.select('clipPath circle').attr('r', radius);
   all.select('.pic').attr('display', d => photoMode && d.picture ? null : 'none').attr('href', d => d.picture || null)
@@ -306,9 +293,9 @@ function fitIfNeeded(force = false) {
   const x0 = d3.min(nodes, d => d.x - radius(d)), x1 = d3.max(nodes, d => d.x + radius(d));
   const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
   const out = nodes.some(d => { const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;  // cuenta el borde del círculo, no solo el centro
-    return sx - r < left || sx + r > innerWidth - 330 || sy - r < 70 || sy + r > innerHeight - 90; });
+    return sx - r < left || sx + r > innerWidth - 20 || sy - r < 70 || sy + r > innerHeight - 90; });
   if (!out && !force) return;
-  const w = innerWidth - 340 - left, h = innerHeight - 180;  // deja libres la barra, la pila, la ficha y el pie
+  const w = innerWidth - 20 - left, h = innerHeight - 180;  // deja libres la barra y el pie
   // nunca por debajo de 0.6: el encuadre automático no debe ocultar los nombres
   const s = Math.max(0.6, Math.min(1.2, 0.9 * Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80))));
   svg.transition().duration(700).call(zoom.transform,
@@ -365,7 +352,7 @@ function placeAt(n, c, ang) {
 // Nodo a partir de la ficha completa: nunca entra al grafo una banda a medio cargar
 function addFull(full, near, origin = false) {
   const n = addNode(full, near, origin);
-  n.sub = full.genres[0]; n.genre = family(n.sub); n.picture = full.picture;
+  n.sub = full.genres[0]; n.genre = family(n.sub); n.picture = full.picture; n.link = full.link;
   return n;
 }
 function addLink(a, b) {
@@ -408,7 +395,7 @@ async function expand(n) {
   n.exhausted = full || !added;
   if (!added) sfx.nope();
   status(added ? '' : full ? `${n.name} no admite más conexiones` : `${n.name}: sin relacionadas nuevas`);
-  render(); if (n.selected) select(n);  // refresca el botón Explorar del panel
+  render(); if (n.selected) select(n);  // refresca el botón desplegar del pie
   wantFit = true;  // encuadra cuando la simulación se asiente
 }
 
@@ -444,74 +431,74 @@ const ICON = {
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
   next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
   explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
   label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
-let shownId = null;  // artista que muestra la ficha
-function showPanel(on) {
-  $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on);
-  if (!on) { shownId = null; if (window.playerReady) { parking.appendChild(player); playIcon(); } }
+let selId = null;  // artista seleccionado: el pie actúa sobre él
+// Primer clic selecciona; clic sobre el seleccionado lo amplía y muestra su menú (y otro clic lo cierra)
+function select(n) {
+  nodes.forEach(m => { m.selected = m === n; if (m !== n) m.open = false; });
+  selId = n ? n.id : null;
+  render(); if (window.playerReady) playIcon();
 }
-document.body.classList.toggle('folded', localStorage.getItem('weave-folded') === '1');
-$('fold').onclick = () => {
-  const folded = document.body.classList.toggle('folded');
-  localStorage.setItem('weave-folded', folded ? '1' : '0'); sfx.select();
-};
+function clickNode(d) {
+  if (d.selected) { d.open = !d.open; sfx.select(); render(); }
+  else { sfx.select(); select(d); }
+}
+function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); playIcon(); }
 
-async function select(n) {
-  nodes.forEach(m => m.selected = m === n); render();
-  const a = await getArtist(n.id).catch(() => null);
-  if (!a || !n.selected) return;  // si mientras cargaba se deseleccionó, no reabrir la ficha
-  parking.appendChild(player);
-  showPanel(true); shownId = n.id;
-  $('info').innerHTML = `
-    ${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}
-    <h2>${esc(a.name)}</h2>
-    ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
-    <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
-    <div id="slot"></div>
-    <div class="row"><button class="icon" id="pPlay" aria-label="Reproducir o parar"></button>
-      <button class="icon" id="pNext" aria-label="Siguiente canción">${ICON.next}</button>
-      <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
-      <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a></div>`;
-  $('pPlay').onclick = panelPlay;
-  $('pNext').onclick = nextTrack;
-  onPanel();
-  playIcon();
+const OPTS = [  // ángulos en grados, por encima del círculo para no tapar el nombre
+  { key: 'spotify', ang: -165, icon: () => ICON.spotify, label: 'Spotify',
+    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+  { key: 'deezer', ang: -115, icon: () => ICON.deezer, label: 'Deezer',
+    run: d => window.open(d.link || 'https://www.deezer.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+  { key: 'play', ang: -65, icon: d => isPlaying(d) ? ICON.pause : ICON.play, label: 'Reproducir o pausar', run: d => playToggle(d) },
+  { key: 'next', ang: -15, icon: () => ICON.next, label: 'Siguiente canción', run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+];
+function renderMenus(all) {
+  all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
+    .join(enter => {
+      const g = enter.append('g').attr('class', 'opt').attr('role', 'button').attr('aria-label', o => o.label)
+        .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
+      g.append('circle').attr('r', 17);
+      g.append('g').attr('class', 'ico');
+      return g;
+    })
+    .attr('transform', o => {
+      const R = radius(o.d) + 24, a = o.ang * Math.PI / 180;
+      return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
+    })
+    .each(function (o) {
+      const ico = d3.select(this).select('.ico');
+      const html = o.icon(o.d);
+      if (ico.attr('data-html') === html) return;  // solo se repinta si cambia (play ↔ pausa)
+      ico.attr('data-html', html).html(html);
+      ico.select('svg').attr('x', -10).attr('y', -10).attr('width', 20).attr('height', 20);
+    });
 }
 
-// ---------- Preview: un solo reproductor para toda la página ----------
+// ---------- Preview: un solo reproductor, oculto ----------
 const player = new Audio();
-player.controls = true;  // la barra de progreso de siempre, dentro de la ficha
 const tracks = new Map();  // id de artista → promesa con sus canciones (las 10 más escuchadas)
 const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
 let queue = { id: null, list: [], i: 0 };  // artista cargado en el reproductor y su canción
 let playToken = 0;  // solo cuenta la última orden (evita carreras si se pulsa rápido)
-// El reproductor nunca sale de la página (sacarlo puede pausarlo): cuando no se muestra, se aparca oculto
-const parking = document.createElement('div');
-parking.hidden = true; document.body.appendChild(parking); parking.appendChild(player);
 const sounding = () => !!player.src && !player.paused;
-const mineSounding = () => sounding() && queue.id === shownId;  // suena el artista de la ficha
 // ¿Está sonando este artista? (marca su círculo)
 function isPlaying(d) { return !!window.playerReady && sounding() && queue.id === d.id; }
-function markPlaying() { gNodes.selectAll('g.node').classed('playing', isPlaying); }
 function playIcon() {
-  markPlaying();
-  const f = $('play');  // pie: ■ para lo que suene; ▶ reproduce la ficha
-  f.innerHTML = sounding() ? ICON.stop : ICON.play; f.setAttribute('aria-pressed', sounding());
-  f.disabled = !sounding() && shownId == null;
-  const p = $('pPlay');  // ficha: solo habla de su artista
-  if (p) { p.innerHTML = mineSounding() ? ICON.stop : ICON.play; p.setAttribute('aria-pressed', mineSounding()); }
-  const e = $('expand'), n = byId.get(shownId);
+  const nodesSel = gNodes.selectAll('g.node');
+  nodesSel.classed('playing', isPlaying);
+  renderMenus(nodesSel);  // ▶ ↔ ❚❚ en el menú del círculo
+  const f = $('play');  // pie: pausa lo que suene; si no, reproduce el seleccionado (o reanuda)
+  f.innerHTML = sounding() ? ICON.pause : ICON.play; f.setAttribute('aria-pressed', sounding());
+  f.disabled = !sounding() && selId == null && queue.id == null;
+  const e = $('expand'), n = byId.get(selId);
   e.disabled = !n || degree(n) >= MAX_LINKS || !!n.loading;
-}
-// Coloca la barra de audio: en la ficha solo si es de su artista; si no, aparcada
-function placePlayer() {
-  const slot = $('slot');
-  (slot && queue.id === shownId ? slot : parking).appendChild(player);
 }
 async function load(id, i, play) {
   const t = ++playToken;
@@ -520,32 +507,26 @@ async function load(id, i, play) {
   if (!list.length) { if (play) flashError(); return; }
   queue = { id, list, i: (i + list.length) % list.length };
   player.src = list[queue.i].preview; player.title = list[queue.i].title;
-  placePlayer();
   if (play) player.play().catch(() => flashError());
   playIcon();
 }
-const stop = () => { playToken++; player.pause(); player.currentTime = 0; playIcon(); };
-// Pie: si algo suena, lo para; si no, reproduce el artista de la ficha
+// Play/pausa de un artista: si es el que está cargado, pausa o reanuda donde iba; si no, empieza el suyo
+function playToggle(d) {
+  if (queue.id === d.id && player.src) {
+    playToken++;
+    if (sounding()) player.pause(); else player.play().catch(() => flashError());
+    return;
+  }
+  load(d.id, 0, true);
+}
 function togglePlay() {
-  if (sounding()) return stop();
-  if (shownId != null) load(shownId, queue.id === shownId ? queue.i : 0, true);
-}
-// Ficha: su ▶ / ■ y «siguiente» actúan siempre sobre el artista de la ficha
-function panelPlay() {
-  if (mineSounding()) return stop();
-  load(shownId, queue.id === shownId ? queue.i : 0, true);
-}
-function nextTrack() { load(shownId, queue.id === shownId ? queue.i + 1 : 0, true); }
-// Al abrir una ficha: si no suena nada, su barra se prepara con su primera canción
-function onPanel() {
-  if (queue.id === shownId) placePlayer();
-  else if (!sounding()) load(shownId, 0, false);
-  else placePlayer();  // suena otro artista: la ficha no muestra la barra ajena
-  playIcon();
+  if (sounding()) { playToken++; player.pause(); return; }
+  const n = byId.get(selId);
+  if (n) playToggle(n); else if (queue.id != null) player.play().catch(() => flashError());
 }
 $('play').onclick = togglePlay;
 ['play', 'pause', 'ended', 'emptied'].forEach(ev => player.addEventListener(ev, playIcon));
-// Al acabar una canción sigue la siguiente del MISMO artista que sonaba, aunque la ficha sea de otro
+// Al acabar una canción sigue la siguiente del mismo artista
 player.addEventListener('ended', () => { if (queue.id != null) load(queue.id, queue.i + 1, true); });
 window.playerReady = true;
 playIcon();
@@ -668,7 +649,7 @@ function removeNode(n) {
   links.splice(0, links.length, ...restLinks.filter(l => ends(l).every(id => keep.has(id))));
   byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
   nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
-  if (!byId.has(shownId)) showPanel(false);  // la ficha solo se cierra si su artista ya no está en el mapa
+  if (!byId.has(selId)) selId = null;
   $('tip').style.display = 'none';
   sfx.remove();
   status('');
@@ -680,10 +661,10 @@ document.addEventListener('keydown', e => {
   if (sel) removeNode(sel);
 });
 
-function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
+function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); if (window.playerReady) playIcon(); }
 $('clear').innerHTML = ICON.clear;
 $('expand').innerHTML = ICON.explore;
-$('expand').onclick = () => { const n = byId.get(shownId); if (n) expand(n); };
+$('expand').onclick = () => { const n = byId.get(selId); if (n) expand(n); };
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 function toggleLabels(on = !showLabels) {
   showLabels = on; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
@@ -738,7 +719,7 @@ async function tracePath(a, b) {
 }
 
 // Clic en el fondo: solo quita el resaltado; la ficha se queda con el último artista
-svg.on('click', () => { nodes.forEach(m => m.selected = false); $('tip').style.display = 'none'; render(); });
+svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });
 
 // ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
 async function originsFromUrl() {
