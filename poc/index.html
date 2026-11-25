@@ -44,7 +44,7 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 @keyframes weave { to { stroke-dashoffset: -40; } }
 @keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n { animation: pulse 1.6s ease-in-out infinite; } }
-#info { position: fixed; top: 72px; right: 0; bottom: 0; width: 320px;  /* bajo la barra, que va siempre de lado a lado */ z-index: 4; display: none; flex-direction: column; gap: 8px;
+#info { position: fixed; top: 0; right: 0; bottom: 0; width: 320px;  /* a toda altura; la barra se encoge para dejarle sitio */ z-index: 4; display: none; flex-direction: column; gap: 8px;
         padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
 /* Ficha plegable: se desliza a la derecha y deja una pestaña para recuperarla */
 #info { transition: transform .3s ease; }
@@ -56,6 +56,9 @@ body.folded #info { transform: translateX(calc(100% + 2px)); }
 body.panel #fold { display: grid; place-items: center; }
 body.folded #fold { right: 0; }
 body.folded #fold svg { transform: rotate(180deg); }
+.ui, #busy.bar { transition: right .3s ease; }
+body.panel:not(.folded) .ui { right: 336px; }
+body.panel:not(.folded) #busy.bar { right: 350px; }
 @media (prefers-reduced-motion: reduce) { #info, #fold, #fold svg { transition: none; } }
 #info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
 #info h2 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
