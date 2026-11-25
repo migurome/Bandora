@@ -97,6 +97,14 @@ class CrawlTest(unittest.TestCase):
         enrich_pending(ing)  # termina (no se queda en bucle) …
         self.assertEqual(store.pending_lastfm(10), [a])  # … y el artista sigue pendiente para otro intento
 
+    def test_enrich_stops_after_repeated_failures(self):
+        wd = FakeWikidata({}); wd.fail = True
+        store, dz, mb, ing = world(wikidata=wd)
+        for i in range(10):
+            a = store.upsert_deezer(1000 + i, f"Banda {i}", 10); store.attach_mbid(a, f"mb-{i}"); store.set_level(a, 2)
+        enrich_pending(ing, which="wikidata")
+        self.assertEqual(wd.calls["synergies"], 3)  # no sigue martilleando una fuente que falla
+
     def test_wikidata_failure_keeps_pending(self):
         wd = FakeWikidata({}); wd.fail = True
         store, dz, mb, ing = world(wikidata=wd)

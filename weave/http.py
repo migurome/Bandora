@@ -37,9 +37,11 @@ class Fetcher:
                 with self.opener(req, timeout=15) as r:
                     data = json.load(r)
             except urllib.error.HTTPError as e:
-                if e.code != 503 or attempt == ATTEMPTS - 1:
+                if e.code not in (429, 503) or attempt == ATTEMPTS - 1:
                     raise
-                self.sleep(2 * (attempt + 1))  # 503 = límite de ritmo: esperar más cada vez
+                # 429/503 = límite de ritmo: esperar lo que pida el servidor (máx. 60 s) o cada vez más
+                after = (e.headers or {}).get("Retry-After")
+                self.sleep(min(int(after), 60) if after and str(after).isdigit() else 2 * (attempt + 1))
                 continue
             if isinstance(data, dict) and isinstance(data.get("error"), dict) and data["error"].get("code") == 4 \
                     and attempt < ATTEMPTS - 1:

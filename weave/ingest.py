@@ -282,7 +282,7 @@ def enrich_pending(ingestor, limit=None, on_progress=None, which="lastfm") -> in
     """Pasa por Last.fm o Wikidata los artistas completos que aún no lo tienen (reanudable: lastfm_at / wikidata_at)."""
     pending = ingestor.store.pending_lastfm if which == "lastfm" else ingestor.store.pending_wikidata
     enrich = ingestor.enrich_lastfm if which == "lastfm" else ingestor.enrich_wikidata
-    done, tried = 0, set()
+    done, tried, failures = 0, set(), 0
     while limit is None or done < limit:
         # los que fallan en esta pasada se saltan sin marcar: quedan pendientes para el próximo relleno
         nxt = next((a for a in pending(len(tried) + 1) if a not in tried), None)
@@ -290,9 +290,13 @@ def enrich_pending(ingestor, limit=None, on_progress=None, which="lastfm") -> in
             break
         tried.add(nxt)
         if enrich(nxt):
-            done += 1
+            done, failures = done + 1, 0
             if on_progress:
                 on_progress(done, nxt)
+        else:
+            failures += 1
+            if failures >= 3:  # la fuente no responde (o nos limita): se para en vez de insistir
+                break
     return done
 
 

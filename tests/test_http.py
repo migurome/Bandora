@@ -27,6 +27,8 @@ def opener_returning(*responses, seen=None):
         if seen is not None:
             seen.append(req)
         r = queue.pop(0)
+        if isinstance(r, tuple):  # (código, cabeceras)
+            raise urllib.error.HTTPError(req.full_url, r[0], "error", r[1], None)
         if isinstance(r, int):
             raise urllib.error.HTTPError(req.full_url, r, "error", {}, None)
         return io.BytesIO(json.dumps(r).encode())
@@ -60,6 +62,18 @@ class FetcherTest(unittest.TestCase):
         f = fetcher(c, opener_returning({"error": {"code": 4}}, {"data": []}))
         self.assertEqual(f.get_json("http://dz/x", DEEZER), {"data": []})
         self.assertEqual(c.sleeps.count(5), 1)
+
+    def test_retries_429_honouring_retry_after(self):
+        c = FakeClock()
+        f = fetcher(c, opener_returning((429, {"Retry-After": "7"}), {"ok": 1}))
+        self.assertEqual(f.get_json("http://wd/x", DEEZER), {"ok": 1})
+        self.assertIn(7, c.sleeps)
+
+    def test_retry_after_is_capped(self):
+        c = FakeClock()
+        f = fetcher(c, opener_returning((429, {"Retry-After": "3600"}), {"ok": 1}))
+        f.get_json("http://wd/x", DEEZER)
+        self.assertLessEqual(max(c.sleeps), 60)
 
     def test_gives_up_after_4_attempts(self):
         c = FakeClock()
