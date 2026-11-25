@@ -20,7 +20,7 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 | Círculo = foto del artista | Recorte circular con aro del color de su familia de género; nombre debajo |
 | Clic | Un clic abre el círculo (ampliado, con menú en semicírculo por debajo); otro clic lo cierra. Sin doble clic |
 | Menú del círculo | Desplegar (amarillo) · conector · ▶/❚❚ · siguiente canción · quitar · Spotify |
-| Conector | Arrastrar desde el conector: un cable suelto cuelga hasta el puntero; al soltarlo en otro círculo se conecta, «corre» y los artistas del camino salen de él |
+| Conector | Arrastrar desde el conector hasta otro círculo teje el camino entre los dos dentro del mapa actual |
 | Máximo 5 conexiones por artista | Desplegar desde el botón amarillo del menú; sin repeticiones (nombre normalizado); abanico hacia fuera; aro punteado cuando está completo |
 | Nada entra a medio cargar | Arco que gira en la banda que se explora; los artistas entran ya completos |
 | Logo de Weave animado = trabajando | Grande en el centro con el mapa vacío; pequeño en la barra si hay bandas |
@@ -35,7 +35,8 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 
 **Descartado** (no volver a meterlo sin motivo): enlaces indirectos punteados, vista de géneros al
 alejar el zoom, contadores, ficha lateral, pila de carga, carga de listas en la interfaz (se importarán
-en la fase de tu huella), marcas de «tu huella» en el mapa, botones de silenciar y de fotos.
+en la fase de tu huella), marcas de «tu huella» en el mapa, botones de silenciar y de fotos, doble clic,
+conector como «cable suelto» que cuelga y se anima.
 
 ### Lo que aprendimos y condiciona el diseño
 
