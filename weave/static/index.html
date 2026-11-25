@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Weave</title>
+<title>Weave Bands</title>
 <link rel="icon" href="/weave-icon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -47,6 +47,12 @@ button:hover { background: #3a3f49; }
 #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
+/* Marca: con el mapa vacío y sin trabajo en curso, logo y nombre en el centro */
+#brand { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 1; transition: opacity .4s; }
+#brand.hide { opacity: 0; }
+#brand .logo { width: 120px; height: 120px; margin: 0 auto; }
+#brand .logo svg { width: 100%; height: 100%; }
+#brand .name { margin-top: 10px; font-size: 30px; font-weight: 600; letter-spacing: -1px; color: var(--text); }
 #busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
 #busy.on { display: block; }
 #busy svg { width: 100%; height: 100%; }
@@ -101,6 +107,7 @@ button:hover { background: #3a3f49; }
   <ul id="results"></ul>
 </div>
 <div id="legend"></div>
+<div id="brand" aria-hidden="true"><div class="logo"></div><div class="name">weave bands</div></div>
 <div id="busy" role="status" aria-label="Cargando">
   <svg viewBox="0 0 128 128">
     <g stroke-linecap="round" fill="none" stroke-width="5">
@@ -174,6 +181,7 @@ function flashError() {
 // ---------- Logo de carga ----------
 let busyCount = 0;
 function showBusy() {
+  $('brand').classList.toggle('hide', nodes.length > 0 || busyCount > 0);
   const b = $('busy');
   b.classList.toggle('on', busyCount > 0);
   b.classList.toggle('center', nodes.length === 0);
@@ -336,6 +344,7 @@ function render() {
   sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
   renderLegend();
   playIcon();
+  showBusy();  // la marca del centro solo con el mapa vacío
 }
 
 // Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más de 1.2× ni alejar de 0.6×)
@@ -689,6 +698,8 @@ $('q').addEventListener('keydown', e => {
 });
 
 // ---------- Arranque ----------
+$('brand').querySelector('.logo').innerHTML = $('busy').querySelector('svg').outerHTML;  // el mismo logo, quieto
+$('brand').querySelectorAll('.thread, .n').forEach(el => el.removeAttribute('class'));
 $('play').onclick = footPlay;
 $('clear').innerHTML = ICON.clear;
 $('clear').onclick = clearEverything;

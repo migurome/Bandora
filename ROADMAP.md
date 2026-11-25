@@ -1,4 +1,4 @@
-# Weave · Hoja de ruta
+# Weave Bands · Hoja de ruta
 
 ## Para qué es
 
@@ -15,11 +15,12 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 
 | Comportamiento | Detalle |
 |---|---|
-| Barra = terminal | Texto normal busca artistas; comandos con `/`: `/from A to B`, `/label on\|off`, `/clear`. Al escribir `/` se listan. Error = la barra tiembla en rojo, sin mensajes |
+| Barra = terminal | Texto normal busca artistas (Intro añade el primer resultado); comandos con `/`: `/from A to B`, `/label on\|off`, `/clear`. Al escribir `/` se listan. Error = la barra tiembla en rojo, sin mensajes |
 | Autocompletado en comandos | En `/from` se sugieren artistas para A y para B; Tab, clic o Enter completan el nombre exacto |
 | Círculo = foto del artista | Recorte circular con aro del color de su familia de género; nombre debajo |
 | Clic / clic | Primer clic selecciona; clic sobre el seleccionado lo amplía con un menú en semicírculo por debajo |
-| Menú del círculo | Desplegar (amarillo) · ▶/❚❚ · siguiente canción · Deezer · Spotify |
+| Menú del círculo | Desplegar (amarillo) · conector · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Conector | Arrastrar desde el conector hasta otro círculo teje el camino entre los dos dentro del mapa actual |
 | Máximo 5 conexiones por artista | Sin repeticiones (nombre normalizado); abanico hacia fuera; aro punteado cuando está completo |
 | Nada entra a medio cargar | Arco que gira en la banda que se explora; los artistas entran ya completos |
 | Logo de Weave animado = trabajando | Grande en el centro con el mapa vacío; pequeño en la barra si hay bandas |
@@ -27,7 +28,8 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 | Pie | ▶/❚❚ (seleccionado o lo que suena) y ✕ (limpia y para la música) |
 | Camino | `/from A to B`: cadena dorada con n intermedios, artistas uno a uno |
 | Géneros | Ocultos por defecto; `/label on` muestra la leyenda, que es también filtro |
-| Quitar | Supr; se lleva la rama que colgaba de la banda |
+| Quitar | Papelera del menú o Supr; se lleva la rama que colgaba de la banda |
+| Marca | Con el mapa vacío, logo y «weave bands» en el centro |
 | Sonidos de burbuja | Siempre activos |
 | Interfaz sin texto | Iconos y colores en vez de etiquetas: usable en cualquier idioma |
 
@@ -62,17 +64,23 @@ dejó de aplicar al salir las listas de la interfaz.
 
 Pendiente operativo: el rastreo inicial va por 176 de ~2.500 (`python -m weave.ingest crawl`, reanudable).
 
-### Fase 2 · Géneros y relaciones de calidad
+### Fase 2a · Last.fm y familias — ✅ hecha (25/11/2026)
 
-**Objetivo:** que el color y las conexiones signifiquen algo.
+Géneros y parecidos de Last.fm (clave en `data/lastfm_key.txt`, fuera de git) con prioridad sobre
+MusicBrainz y Deezer; familias en un único sitio editable (`weave/families.json`) con dos nuevas:
+Clásica / Bandas sonoras y Folk / Cantautor; las 5 que se despliegan combinan el parecido de Last.fm
+con el orden de Deezer. Relleno: `python -m weave.ingest lastfm` (858 artistas).
+Plan: `docs/superpowers/plans/2026-11-25-fase2a-lastfm-familias.md`.
 
-- Géneros finos y grado de parecido desde Last.fm (necesita clave gratuita).
-- Sinergias desde Wikidata: miembros compartidos, colaboraciones, influencias (tipos de relación distintos).
-- Familias revisadas: clásica, bandas sonoras, folk, cantautor… y editables.
-- Relación combinada de varias fuentes para elegir mejor las 5 que se despliegan.
+Criterios comprobados: Leño → Rock (rock urbano) · Vivaldi y Hans Zimmer → Clásica / Bandas sonoras ·
+Camarón → Latina / Flamenco · Marea despliega primero Extremoduro y La Fuga.
 
-**Hecho cuando:** Leño sale como rock y no como hip hop; los compositores clásicos no salen grises;
-el tooltip dice por qué dos artistas están relacionados.
+### Fase 2b · Sinergias de Wikidata
+
+- Miembros compartidos, colaboraciones e influencias como relaciones de otro tipo.
+- Mostrar por qué dos artistas están conectados, sin texto (estilo de línea o icono).
+
+**Hecho cuando:** dos bandas con un miembro en común aparecen conectadas aunque no «suenen» parecidas.
 
 ### Fase 3 · Explorador definitivo
 
@@ -114,7 +122,6 @@ el tooltip dice por qué dos artistas están relacionados.
 
 ## Decisiones pendientes
 
-- **Clave de Last.fm** (fase 2): ¿la sacamos?
 - **Alcance de los perfiles** (fase 6): ¿solo local o algún día publicado?
 
 ## Datos del usuario

@@ -1,4 +1,4 @@
-# Weave
+# Weave Bands
 
 Explorador visual de música: escribes un artista, aparece su círculo y la red de grupos relacionados va
 creciendo a tu alrededor. Todo en local.
