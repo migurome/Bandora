@@ -1,12 +1,13 @@
 """Clientes de Deezer y MusicBrainz: llamadas y parseo a estructuras simples."""
 import urllib.parse
 
-from .http import DEEZER, LASTFM, MUSICBRAINZ
+from .http import DEEZER, LASTFM, MUSICBRAINZ, WIKIDATA
 from .text import norm
 
 DZ = "https://api.deezer.com"
 MB = "https://musicbrainz.org/ws/2"
 LFM = "https://ws.audioscrobbler.com/2.0/"
+WD = "https://query.wikidata.org/sparql"
 
 
 class SourceError(Exception):
@@ -95,3 +96,35 @@ class LastFm:
     def similar(self, name, limit=30) -> list[dict]:
         d = self._get("artist.getsimilar", name, limit=limit)
         return [{"name": a["name"], "match": float(a.get("match", 0))} for a in (d or {}).get("similarartists", {}).get("artist", [])]
+
+
+# Sinergias por MBID (P434): miembros compartidos (P527 «tiene parte», P463 «miembro de») e influencias (P737)
+SYNERGY_QUERY = """SELECT DISTINCT ?otherMbid ?otherLabel ?kind WHERE {{
+  ?band wdt:P434 "{mbid}" .
+  {{ ?band wdt:P527 ?m . ?m wdt:P463 ?other . BIND("member" AS ?kind) }}
+  UNION {{ ?m wdt:P463 ?band . ?m wdt:P463 ?other . BIND("member" AS ?kind) }}
+  UNION {{ ?band wdt:P527 ?other . BIND("member" AS ?kind) }}
+  UNION {{ ?other wdt:P463 ?band . BIND("member" AS ?kind) }}
+  UNION {{ ?band wdt:P737 ?other . BIND("influence" AS ?kind) }}
+  UNION {{ ?other wdt:P737 ?band . BIND("influence" AS ?kind) }}
+  FILTER(?other != ?band)
+  ?other wdt:P434 ?otherMbid .
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "es,en". }}
+}} LIMIT 60"""
+
+
+class Wikidata:
+    def __init__(self, fetcher):
+        self.f = fetcher
+
+    def synergies(self, mbid) -> list[dict]:
+        q = urllib.parse.urlencode({"query": SYNERGY_QUERY.format(mbid=mbid.replace('"', "")), "format": "json"})
+        rows = self.f.get_json(f"{WD}?{q}", WIKIDATA).get("results", {}).get("bindings", [])
+        out = {}
+        for r in rows:
+            other, kind = r["otherMbid"]["value"], r["kind"]["value"]
+            if other == mbid:
+                continue
+            if other not in out or kind == "member":  # si sale por los dos motivos, gana «miembro»
+                out[other] = {"mbid": other, "name": r["otherLabel"]["value"], "kind": kind}
+        return list(out.values())

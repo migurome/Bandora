@@ -70,3 +70,17 @@ class FakeLastFm:
     def similar(self, name, limit=30):
         self.calls["similar"] += 1
         return self.data.get(name, {}).get("similar", [])[:limit]
+
+
+class FakeWikidata:
+    """data: {mbid: [{"mbid", "name", "kind"}]}; fail=True simula Wikidata caído."""
+
+    def __init__(self, data):
+        self.data, self.fail = data, False
+        self.calls = Counter()
+
+    def synergies(self, mbid):
+        self.calls["synergies"] += 1
+        if self.fail:
+            raise OSError("Wikidata caído")
+        return self.data.get(mbid, [])

@@ -1,6 +1,7 @@
 import unittest
+import urllib.parse
 
-from weave.sources import Deezer, LastFm, MusicBrainz, SourceError
+from weave.sources import Deezer, LastFm, MusicBrainz, SourceError, Wikidata
 
 
 class UrlFetcher:
@@ -96,3 +97,25 @@ class LastFmTest(unittest.TestCase):
         f = UrlFetcher({"ws.audioscrobbler.com": {"error": 29, "message": "Rate limit exceeded"}})
         with self.assertRaises(SourceError):
             LastFm(f, "k").top_tags("Marea")
+
+
+def binding(mbid, name, kind):
+    return {"otherMbid": {"value": mbid}, "otherLabel": {"value": name}, "kind": {"value": kind}}
+
+
+class WikidataTest(unittest.TestCase):
+    def test_wikidata_synergies_shape(self):
+        f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-pla", "Platero y Tú", "member"),
+                                                                         binding("mb-ext2", "Extrechinato y Tú", "member")]}}})
+        self.assertEqual(Wikidata(f).synergies("mb-ext"), [{"mbid": "mb-pla", "name": "Platero y Tú", "kind": "member"},
+                                                            {"mbid": "mb-ext2", "name": "Extrechinato y Tú", "kind": "member"}])
+        self.assertIn("mb-ext", urllib.parse.unquote(f.urls[0]))
+        self.assertIn("format=json", f.urls[0])
+
+    def test_wikidata_member_wins_over_influence(self):
+        f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-x", "X", "influence"), binding("mb-x", "X", "member")]}}})
+        self.assertEqual(Wikidata(f).synergies("mb-a"), [{"mbid": "mb-x", "name": "X", "kind": "member"}])
+
+    def test_wikidata_skips_self(self):
+        f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-a", "A", "member"), binding("mb-b", "B", "influence")]}}})
+        self.assertEqual([x["mbid"] for x in Wikidata(f).synergies("mb-a")], ["mb-b"])
