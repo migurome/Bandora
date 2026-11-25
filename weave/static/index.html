@@ -89,7 +89,6 @@ button:hover { background: #3a3f49; }
 .opt .ico { color: var(--text); pointer-events: none; }
 .opt.primary .ico { color: #111; }
 .opt.off { opacity: .35; cursor: default; }
-.opt.drag { cursor: crosshair; }
 /* línea que se arrastra desde el conector hasta otro círculo */
 .wire { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n, .spin { animation: pulse 1.6s ease-in-out infinite; } }
@@ -134,7 +133,6 @@ const api = async url => { const r = await fetch(url); const j = await r.json();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
-  connect: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
@@ -299,10 +297,7 @@ function render() {
   const e = n.enter().append('g')
     .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })
     .on('mousemove', (ev, d) => showTip(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
-    .call(d3.drag()
-      .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
-      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+    .call(connectDrag);  // pinchar y arrastrar hasta otro círculo los conecta
   e.append('circle').attr('class', 'ring');
   e.append('circle').attr('class', 'spin');
   e.append('circle').attr('class', 'dot');
@@ -391,21 +386,19 @@ function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }
 
 const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
 const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
-  { key: 'expand', ang: 160, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
+  { key: 'expand', ang: 155, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
-  { key: 'connect', ang: 134, label: 'Conectar con otro artista (arrastrar)', icon: () => ICON.connect, drag: true, run: () => {} },
-  { key: 'play', ang: 108, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
-  { key: 'next', ang: 82, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
-  { key: 'remove', ang: 56, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
-  { key: 'spotify', ang: 30, label: 'Spotify', icon: () => ICON.spotify,
+  { key: 'play', ang: 122, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
+  { key: 'next', ang: 90, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'remove', ang: 58, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
+  { key: 'spotify', ang: 25, label: 'Spotify', icon: () => ICON.spotify,
     run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
 ];
 function renderMenus(all) {
   all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
     .join(enter => {
-      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '') + (o.drag ? ' drag' : '')).attr('role', 'button').attr('aria-label', o => o.label)
+      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
         .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
-      g.filter(o => o.drag).call(connectDrag);
       const pop = g.append('g').attr('class', 'pop');
       pop.append('circle').attr('class', 'bg').attr('r', 17);
       pop.append('g').attr('class', 'ico');
@@ -424,13 +417,14 @@ function renderMenus(all) {
     });
 }
 
-// ---------- Conector: arrastrar desde un círculo hasta otro teje el camino entre los dos ----------
+// ---------- Conectar: pinchar en un círculo y arrastrar hasta otro teje el camino entre los dos ----------
 const gWire = root.append('g');
 const nodeAt = p => nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) <= radius(n));
 const connectDrag = d3.drag()
+  .filter(ev => !ev.button && !ev.target.closest('.opt'))  // los botones del menú no arrastran
   .on('start', ev => {
-    ev.sourceEvent.stopPropagation();  // no arrastrar el círculo, sino el cable
-    const a = ev.subject.d;
+    ev.sourceEvent.stopPropagation();  // sin mover el mapa
+    const a = ev.subject;
     gWire.append('line').attr('class', 'wire').attr('x1', a.x).attr('y1', a.y).attr('x2', a.x).attr('y2', a.y);
   })
   .on('drag', ev => {
@@ -439,7 +433,7 @@ const connectDrag = d3.drag()
   })
   .on('end', ev => {
     gWire.selectAll('line').remove();
-    const a = ev.subject.d, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
+    const a = ev.subject, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
     if (!b || b === a) return;  // soltado en el vacío o en sí mismo: no hace nada
     sfx.select(); connectPath(a, b);
   });

@@ -19,8 +19,8 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 | Autocompletado en comandos | En `/from` se sugieren artistas para A y para B; Tab, clic o Enter completan el nombre exacto |
 | Círculo = foto del artista | Recorte circular con aro del color de su familia de género; nombre debajo |
 | Clic | Un clic abre el círculo (ampliado, con menú en semicírculo por debajo); otro clic lo cierra. Sin doble clic |
-| Menú del círculo | Desplegar (amarillo) · conector · ▶/❚❚ · siguiente canción · quitar · Spotify |
-| Conector | Arrastrar desde el conector hasta otro círculo teje el camino entre los dos dentro del mapa actual |
+| Menú del círculo | Desplegar (amarillo) · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Conectar | Pinchar en un círculo y arrastrar hasta otro teje el camino entre los dos dentro del mapa actual (los círculos no se recolocan a mano) |
 | Máximo 5 conexiones por artista | Desplegar desde el botón amarillo del menú; sin repeticiones (nombre normalizado); abanico hacia fuera; aro punteado cuando está completo |
 | Nada entra a medio cargar | Arco que gira en la banda que se explora; los artistas entran ya completos |
 | Logo de Weave animado = trabajando | Grande en el centro con el mapa vacío; pequeño en la barra si hay bandas |
