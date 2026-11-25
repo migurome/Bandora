@@ -126,6 +126,7 @@ audio { width: 100%; height: 34px; flex: none; }
 </div>
 <div id="foot">
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
+  <button id="labels" class="icon" title="/label" aria-label="Mostrar u ocultar los nombres" aria-pressed="false"></button>
 </div>
 <div id="tip"></div>
 <svg id="svg"></svg>
@@ -178,7 +179,7 @@ const zoom = d3.zoom().scaleExtent([0.08, 4]).on('zoom', e => {
   if (e.sourceEvent) autoFit = false;  // el usuario ha tocado el zoom: no le movemos la vista
   root.attr('transform', e.transform);
   k = e.transform.k;
-  gNodes.selectAll('text').attr('display', k < 0.6 ? 'none' : null);
+  gNodes.selectAll('text').attr('display', labelDisplay());
 });
 svg.call(zoom).on('dblclick.zoom', null);
 
@@ -187,7 +188,7 @@ const sim = d3.forceSimulation(nodes)
   .force('link', d3.forceLink(links).id(d => d.id)
     .distance(l => radius(l.source) + radius(l.target) + 70).strength(0.6))
   .force('charge', d3.forceManyBody().strength(d => -300 - 8 * radius(d)).distanceMax(700))
-  .force('collide', d3.forceCollide(d => radius(d) + (photoMode ? 26 : 14)).strength(1))
+  .force('collide', d3.forceCollide(d => radius(d) + (photoMode && showLabels ? 26 : 14)).strength(1))  // hueco para el nombre si se ve
   .force('gx', d3.forceX(d => anchor(d).x).strength(d => d.genre ? 0.012 : 0))
   .force('gy', d3.forceY(d => anchor(d).y).strength(d => d.genre ? 0.012 : 0))
   .force('cx', d3.forceX(() => innerWidth / 2).strength(0.008))  // las bandas sueltas no se alejan sin fin
@@ -205,6 +206,8 @@ function anchor(d) {
   const R = n === 1 ? 0 : 140 + 30 * n;
   return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
 }
+let showLabels = localStorage.getItem('weave-labels') === '1';  // nombres bajo los círculos (botón o /label)
+const labelDisplay = () => (k < 0.6 || !showLabels) ? 'none' : null;
 const photoMode = true;  // los círculos muestran la foto del artista; el color del género va en el aro
 function radius(d) {
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
@@ -276,7 +279,7 @@ function render() {
     const L = label(d);
     const under = photoMode;  // con foto, el nombre va debajo del círculo
     d3.select(this).style('font', L.font).classed('under', under).attr('fill', d.genre && !under ? '#15171c' : 'var(--text)')
-      .attr('display', k < 0.6 ? 'none' : null)
+      .attr('display', labelDisplay())
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
       .attr('dy', (t, i) => i === 0 ? (under ? radius(d) + 16 : -(L.lines.length - 1) * LINE_H / 2 + 4) : LINE_H).text(t => t);
   });
@@ -429,6 +432,7 @@ const ICON = {
   deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
+  label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
@@ -535,6 +539,7 @@ $('q').addEventListener('keydown', e => {
 // ---------- Comandos ----------
 const COMMANDS = [
   { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
+  { usage: '/label', fill: '/label', re: /^\/labels?$/i, run: () => toggleLabels() },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => { listRun++; clearAll(); sfx.remove(); } },
 ];
 function showCommands(q) {
@@ -593,6 +598,15 @@ document.addEventListener('keydown', e => {
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
 $('clear').innerHTML = ICON.clear;
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
+function toggleLabels() {
+  showLabels = !showLabels; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
+  $('labels').setAttribute('aria-pressed', showLabels); sfx.select();
+  sim.force('collide').radius(d => radius(d) + (photoMode && showLabels ? 26 : 14));
+  render();
+}
+$('labels').innerHTML = ICON.label;
+$('labels').setAttribute('aria-pressed', showLabels);
+$('labels').onclick = toggleLabels;
 
 // ---------- Indicador de trabajo ----------
 let listRun = 0;  // se incrementa para cancelar una carga en curso
