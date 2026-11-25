@@ -66,7 +66,12 @@ button:hover { background: #3a3f49; }
 
 /* Grafo */
 .link { stroke: #4a5060; stroke-opacity: .7; }
+/* el color de la línea dice el motivo: miembros compartidos o influencia; el camino (dorado) manda */
+.link.member { stroke: #c9bbf6; stroke-width: 2.5; stroke-opacity: .9; }
+.link.influence { stroke: #9de3d0; stroke-width: 2; stroke-opacity: .9; }
 .link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
+#legend .why { display: inline-flex; align-items: center; gap: 5px; margin: 0 10px 2px 6px; color: var(--muted); }
+#legend .why b { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
 .node { cursor: pointer; }
 .node, .link { transition: opacity .25s; }
 .node.off { opacity: .07; pointer-events: none; }
@@ -220,9 +225,12 @@ function addArtist(full, origin = false) {
   nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
   return n;
 }
-function addLink(a, b, path = false) {
+const KIND_RANK = { similar: 0, influence: 1, member: 2 };  // motivo más fuerte primero
+function addLink(a, b, path = false, kind = 'similar') {
   const l = links.find(l => { const [s, t] = ends(l); return s === a.id && t === b.id || s === b.id && t === a.id; });
-  if (!l) links.push({ source: a, target: b, path }); else if (path) l.path = true;
+  if (!l) { links.push({ source: a, target: b, path, kind }); return; }
+  if (path) l.path = true;
+  if (KIND_RANK[kind] > KIND_RANK[l.kind]) l.kind = kind;
 }
 
 // ---------- Dibujo ----------
@@ -296,7 +304,8 @@ function render() {
   const l = gLinks.selectAll('line').data(links, d => d.source.id + '-' + d.target.id);
   l.exit().remove();
   l.enter().append('line').merge(l)
-    .attr('class', d => 'link' + (d.path ? ' path' : '') + (hidden.has(d.source.genre) || hidden.has(d.target.genre) ? ' off' : ''));
+    .attr('class', d => 'link' + (d.kind !== 'similar' ? ' ' + d.kind : '') + (d.path ? ' path' : '')
+      + (hidden.has(d.source.genre) || hidden.has(d.target.genre) ? ' off' : ''));
 
   const n = gNodes.selectAll('g.node').data(nodes, d => d.id);
   n.exit().remove();
@@ -369,7 +378,8 @@ function fitIfNeeded() {
 function renderLegend() {
   $('legend').style.display = showLabels ? '' : 'none';
   $('legend').innerHTML = presentFamilies().map(({ name: g, color: c }) =>
-    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('');
+    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('')
+    + '<div><span class="why"><b style="background:#c9bbf6"></b>miembros</span><span class="why"><b style="background:#9de3d0"></b>influencia</span></div>';
   $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
     const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
   });
@@ -479,7 +489,7 @@ async function expand(n) {
     const c = addArtist(full); c.parent = n;
     const dist = radius(n) + radius(c) + 70;
     c.x = n.x + dist * Math.cos(angles[i]); c.y = n.y + dist * Math.sin(angles[i]);
-    addLink(n, c); added++;
+    addLink(n, c, false, picks[i].kind || 'similar'); added++;
     render(); sfx.join(i);
   }
   n.loading = false;
