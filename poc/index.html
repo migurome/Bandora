@@ -614,7 +614,7 @@ const COMMANDS = [
   { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
-  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => { listRun++; clearAll(); sfx.remove(); } },
+  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
 ];
 function showCommands(q) {
   const word = q.split(/\s+/)[0].toLowerCase();
@@ -671,7 +671,14 @@ document.addEventListener('keydown', e => {
 
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); if (window.playerReady) playIcon(); }
 $('clear').innerHTML = ICON.clear;
-$('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
+// ✕ y /clear: mapa vacío y música parada
+function clearEverything() {
+  listRun++; playToken++;
+  player.pause(); player.removeAttribute('src'); player.load();
+  queue = { id: null, list: [], i: 0 };
+  clearAll(); sfx.remove();
+}
+$('clear').onclick = clearEverything;
 function toggleLabels(on = !showLabels) {
   showLabels = on; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
   sfx.select();
