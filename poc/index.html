@@ -31,21 +31,20 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 #status { color: var(--text); font-size: 13px; min-height: 1.4em; margin-bottom: 4px; }
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
 #foot button { padding: 4px 10px; font-size: 12px; vertical-align: middle; }
-/* Pila de carga: lateral izquierdo, ancho fijo; cada artista sale deslizándose hacia el grafo */
-#queue { position: fixed; left: 16px; top: 76px; bottom: 110px; width: 380px;  /* más ancho que las tarjetas: espacio para la salida */ z-index: 2; display: none; flex-direction: column; gap: 6px;
-         overflow: hidden; font-size: 13px; pointer-events: none;
-         mask-image: linear-gradient(to bottom, #000 75%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent); }
-#queue .head { width: 210px; color: var(--muted); font-size: 12px; padding: 0 4px 2px; }
-#queue .head b { color: var(--text); font-size: 15px; margin-right: 4px; }
-#queue .qi { flex: none; width: 210px; max-height: 40px; padding: 7px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
-             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-             transition: transform .4s ease, opacity .4s ease, max-height .35s ease .15s, padding .35s ease .15s, margin .35s ease .15s, border-width .35s ease .15s; }
-#queue .qi.now { border-color: var(--accent); color: var(--accent); }
-#queue .qi.now::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent);
-                         animation: pulse 1s ease-in-out infinite; }
-#queue .qi.out { transform: translateX(120px) scale(.92); opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -6px; border-width: 0; }
-#queue .qi.fail { text-decoration: line-through; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { #queue .qi { transition: none; } }
+/* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
+#busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
+#busy.on { display: block; }
+#busy svg { width: 100%; height: 100%; }  /* la regla general de svg (grafo a pantalla completa) no aplica aquí */
+#busy.center { left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); }
+#busy.bar { top: 17px; right: 30px; width: 38px; height: 38px; }
+body.panel #busy.bar { right: 350px; }
+#busy .thread { stroke-dasharray: 26 14; animation: weave 1.2s linear infinite; }
+#busy .n { animation: beat 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+#busy .n:nth-of-type(2) { animation-delay: .15s; } #busy .n:nth-of-type(3) { animation-delay: .3s; }
+#busy .n:nth-of-type(4) { animation-delay: .45s; } #busy .n:nth-of-type(5) { animation-delay: .6s; }
+@keyframes weave { to { stroke-dashoffset: -40; } }
+@keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n { animation: pulse 1.6s ease-in-out infinite; } }
 #info { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 4; display: none; flex-direction: column; gap: 8px;
         padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
 #info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
@@ -98,10 +97,22 @@ audio { width: 100%; height: 34px; flex: none; }
 </div>
 <div id="info"></div>
 <div id="legend"></div>
-<div id="queue" aria-live="polite"></div>
+<div id="busy" role="status" aria-label="Cargando">
+  <svg viewBox="0 0 128 128">
+    <g stroke-linecap="round" fill="none" stroke-width="5">
+      <line x1="22" y1="34" x2="43" y2="94" stroke="#a3c9f5"/><line x1="43" y1="94" x2="64" y2="50" stroke="#c9bbf6"/>
+      <line x1="64" y1="50" x2="85" y2="94" stroke="#b5e3a1"/><line x1="85" y1="94" x2="106" y2="34" stroke="#f5a3a3"/>
+      <path class="thread" d="M6 70 C 26 84, 40 64, 64 76 S 102 66, 122 78" stroke="#f2c94c" stroke-width="4.5"/>
+    </g>
+    <g stroke="#0f1115" stroke-width="3">
+      <circle class="n" cx="22" cy="34" r="11" fill="#a3c9f5"/><circle class="n" cx="43" cy="94" r="11" fill="#c9bbf6"/>
+      <circle class="n" cx="64" cy="50" r="13" fill="#b5e3a1"/><circle class="n" cx="85" cy="94" r="11" fill="#f5a3a3"/>
+      <circle class="n" cx="106" cy="34" r="11" fill="#9de3d0"/>
+    </g>
+  </svg>
+</div>
 <div id="foot">
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
-  <button id="photo" class="icon" title="Fotos" aria-label="Mostrar fotos en los círculos" aria-pressed="false"></button>
   <button id="mute" class="icon" title="Sonidos" aria-label="Activar o silenciar sonidos"></button>
 </div>
 <div id="tip"></div>
@@ -182,11 +193,11 @@ function anchor(d) {
   const R = n === 1 ? 0 : 140 + 30 * n;
   return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
 }
-let photoMode = localStorage.getItem('weave-photo') === '1';
+const photoMode = true;  // los círculos muestran la foto del artista; el color del género va en el aro
 function radius(d) {
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
   const size = d.origin ? base + 8 : base;
-  return photoMode ? Math.max(size, 20) : Math.max(size, label(d).r);
+  return photoMode ? Math.max(size + 6, 26) : Math.max(size, label(d).r);
 }
 
 // Nombre dentro del círculo: hasta 2 líneas equilibradas; el radio cubre la caja del texto.
@@ -266,7 +277,7 @@ function render() {
 function fitIfNeeded() {
   if (!nodes.length) return;
   const t = d3.zoomTransform(svg.node());
-  const left = stack.visible ? 240 : 20;
+  const left = 20;
   const x0 = d3.min(nodes, d => d.x - radius(d)), x1 = d3.max(nodes, d => d.x + radius(d));
   const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
   const out = nodes.some(d => { const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;  // cuenta el borde del círculo, no solo el centro
@@ -410,7 +421,6 @@ const ICON = {
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.5c1.3-2.3 3.2-3.5 5.5-3.5s4.2 1.2 5.5 3.5"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
 function showPanel(on) { $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on); }
@@ -435,12 +445,10 @@ async function select(n) {
 }
 
 async function addOrigin(r) {
-  status(`Cargando ${r.name}…`);
-  const full = await getArtist(r.id).catch(() => null);
-  if (!full) { status(`No se pudo cargar ${r.name}`); return; }
+  const full = await working(getArtist(r.id).catch(() => null));
+  if (!full) { flashError(); return; }
   const n = addFull(full, null, true);
   render(); sfx.join(0); select(n);
-  status('');
 }
 
 // ---------- Interfaz ----------
@@ -509,7 +517,7 @@ $('q').addEventListener('keydown', e => {
 // ---------- Comandos ----------
 const COMMANDS = [
   { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
-  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => { listRun++; clearAll(); stack.clear(); sfx.remove(); } },
+  { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => { listRun++; clearAll(); sfx.remove(); } },
 ];
 function showCommands(q) {
   const word = q.split(/\s+/)[0].toLowerCase();
@@ -533,7 +541,7 @@ async function findArtist(name) {
   return res.find(r => norm(r.name) === norm(name)) || res[0] || null;
 }
 async function pathByNames(a, b) {
-  const [x, y] = await Promise.all([findArtist(a), findArtist(b)]);
+  const [x, y] = await working(Promise.all([findArtist(a), findArtist(b)]));
   if (!x || !y) { $('q').value = `/from ${a} to ${b}`; flashError(); return; }
   runPath(x, y);
 }
@@ -565,69 +573,50 @@ document.addEventListener('keydown', e => {
 
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
 $('clear').innerHTML = ICON.clear;
-$('clear').onclick = () => { listRun++; clearAll(); stack.clear(); sfx.remove(); };
-$('photo').innerHTML = ICON.photo;
-$('photo').setAttribute('aria-pressed', photoMode);
-$('photo').onclick = () => {
-  photoMode = !photoMode; localStorage.setItem('weave-photo', photoMode ? '1' : '0');
-  $('photo').setAttribute('aria-pressed', photoMode); sfx.select(); render();
-};
+$('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 
-// ---------- Pila de carga (caminos) ----------
+// ---------- Indicador de trabajo ----------
 let listRun = 0;  // se incrementa para cancelar una carga en curso
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const stack = {
-  start(names) {
-    const q = $('queue');
-    q.innerHTML = `<div class="head"><b>${names.length}</b></div>` +
-      names.map((n, i) => `<div class="qi" data-i="${i}" title="${esc(n)}">${esc(n)}</div>`).join('');
-    q.style.display = 'flex';
-    this.left = names.length;
-  },
-  now(i) { $('queue').querySelector(`.qi[data-i="${i}"]`)?.classList.add('now'); },
-  // sale de la pila (ok = entró al grafo; si no, se tacha antes de irse)
-  done(i, ok = true) {
-    const el = $('queue').querySelector(`.qi[data-i="${i}"]`);
-    if (!el) return;
-    el.classList.remove('now');
-    if (!ok) el.classList.add('fail');
-    requestAnimationFrame(() => el.classList.add('out'));
-    setTimeout(() => el.remove(), 700);
-    this.left--;
-    const h = $('queue').querySelector('.head b'); if (h) h.textContent = Math.max(0, this.left);
-  },
-  end() { setTimeout(() => { if (this.left <= 0) $('queue').style.display = 'none'; }, 700); },
-  clear() { this.left = 0; $('queue').style.display = 'none'; $('queue').innerHTML = ''; },
-  get visible() { return $('queue').style.display === 'flex'; },
-};
+let busyCount = 0;
+function showBusy() {
+  const b = $('busy');
+  b.classList.toggle('on', busyCount > 0);
+  b.classList.toggle('center', nodes.length === 0);
+  b.classList.toggle('bar', nodes.length > 0);
+}
+// Envuelve una promesa: mientras haya alguna pendiente, el logo se anima
+async function working(promise) {
+  busyCount++; showBusy();
+  try { return await promise; } finally { busyCount--; showBusy(); }
+}
 
 // ---------- Camino de x a y ----------
 // /from A to B: el servidor busca la cadena de relacionadas que los une; los artistas entran uno a uno,
 // ya completos, unidos por una línea dorada.
-async function runPath(a, b) {
+function runPath(a, b) { return working(tracePath(a, b)); }
+async function tracePath(a, b) {
   const run = ++listRun;
-  clearAll(); autoFit = true;
-  stack.start([`${a.name} → ${b.name}`]); stack.now(0);
+  clearAll(); autoFit = true; showBusy();
   const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
   if (run !== listRun) return;
-  if (!path) { stack.done(0, false); stack.end(); flashError(); return; }
+  if (!path) { flashError(); return; }
   const ids = path.map(x => x.id);
-  stack.clear(); stack.start(path.map((x, i) => x.name || (i ? b.name : a.name)));
+  const fulls = ids.map(id => getArtist(id).catch(() => null));  // se descargan en paralelo; entran en orden
   let prev = null;
   for (let i = 0; i < ids.length; i++) {
-    stack.now(i);
-    const full = await getArtist(ids[i]).catch(() => null);
+    const full = await fulls[i];
     if (run !== listRun) return;
-    if (!full) { stack.done(i, false); continue; }
+    if (!full) continue;
     const n = addFull(full, null, i === 0 || i === ids.length - 1);
     // en fila de izquierda a derecha; luego la simulación lo curva a su gusto
     n.x = innerWidth * 0.12 + (innerWidth * 0.6) * i / Math.max(1, ids.length - 1); n.y = innerHeight / 2 + (i % 2 ? 40 : -40);
     if (prev) { addLink(prev, n); links[links.length - 1].path = true; }
     prev = n;
-    render(); sfx.join(i); stack.done(i);
+    render(); sfx.join(i); showBusy();
     await sleep(300);
   }
-  stack.end(); sfx.chord(); wantFit = true;
+  sfx.chord(); wantFit = true;
   autoFit = false;
 }
 
