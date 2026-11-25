@@ -152,6 +152,12 @@ class Store:
         rows = self._read("SELECT ext_id FROM source_id WHERE artist_id=? AND source=? ORDER BY rowid LIMIT 1", (artist_id, source))
         return rows[0][0] if rows else None
 
+    def edges(self, artist_id=None) -> list[tuple[int, int]]:
+        """Relaciones de parecido (a, b): todas, o solo las que salen de artist_id en orden de parecido."""
+        if artist_id is None:
+            return [tuple(r) for r in self._read("SELECT a, b FROM relation WHERE kind='similar'")]
+        return [tuple(r) for r in self._read("SELECT a, b FROM relation WHERE kind='similar' AND a=? ORDER BY rank", (artist_id,))]
+
     def by_alias(self, k: str) -> int | None:
         """Artista cuyo alias normalizado es exactamente k (el de más fans si hay varios)."""
         rows = self._read("""SELECT a.id FROM alias al JOIN artist a ON a.id = al.artist_id WHERE al.norm=?
