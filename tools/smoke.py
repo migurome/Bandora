@@ -29,7 +29,7 @@ def main() -> int:
                     + "\n</script>" + page[cut + len("render();\n</script>"):], encoding="utf-8")
     try:
         out = subprocess.run([str(EDGE), "--headless=new", "--disable-gpu", "--autoplay-policy=no-user-gesture-required",
-                              "--virtual-time-budget=60000", "--dump-dom", f"{URL}/{TEMP.name}"],
+                              "--virtual-time-budget=120000", "--dump-dom", f"{URL}/{TEMP.name}"],
                              capture_output=True, timeout=300).stdout.decode("utf-8", "replace")
     finally:
         TEMP.unlink(missing_ok=True)

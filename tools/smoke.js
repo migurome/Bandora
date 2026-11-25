@@ -18,7 +18,7 @@ setTimeout(async () => {
     ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
     ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
     clk(nodeG('Marea')); await sleep(300);
-    ok('menu 5 opciones', document.querySelectorAll('g.opt').length === 5);
+    ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
     clk(opt('play')); await sleep(2000);
@@ -41,9 +41,24 @@ setTimeout(async () => {
     ok('quitar desde el menú', nodes.length === 4 && !byId.has(other.id));
     clk(document.getElementById('svg')); await sleep(200);
     ok('fondo cierra', !document.querySelector('g.opt') && selId == null);
+    // conector: arrastrar desde el menú de Marea hasta Michael Jackson teje el camino dentro del mapa
+    await addOrigin(await findArtist('Michael Jackson')); await sleep(800);
+    const before = nodes.length, marea = nodes.find(n => n.name === 'Marea'), mj = nodes.find(n => n.name === 'Michael Jackson');
+    select(marea); clk(nodeG('Marea')); await sleep(400);
+    const at = el => { const r = el.getBoundingClientRect(); return { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, view: window }; };
+    const from = at(opt('connect').querySelector('.bg')), to = at(nodeG('Michael Jackson').querySelector('.dot'));
+    opt('connect').dispatchEvent(new MouseEvent('mousedown', { ...from, button: 0 }));
+    window.dispatchEvent(new MouseEvent('mousemove', { ...from, clientX: from.clientX + 20 }));
+    window.dispatchEvent(new MouseEvent('mousemove', to));
+    window.dispatchEvent(new MouseEvent('mouseup', to));
+    await sleep(15000);
+    ok('conectar arrastrando', nodes.length > before && links.some(l => l.path) && nodes.includes(marea) && nodes.includes(mj));
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length > 5 && links.every(l => l.path));
+    $('clear').click(); await sleep(300);
+    $('q').value = 'Extremoduro'; $('q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await sleep(4000);
+    ok('intro inmediato añade el primero', nodes.length === 1 && nodes[0].name === 'Extremoduro');
     $('clear').click(); await sleep(300);
     ok('clear', nodes.length === 0 && player.paused && !player.getAttribute('src'));
   } catch (e) { r.push('EXCEPCION ' + e.message); }

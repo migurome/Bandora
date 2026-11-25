@@ -87,6 +87,9 @@ button:hover { background: #3a3f49; }
 .opt .ico { color: var(--text); pointer-events: none; }
 .opt.primary .ico { color: #111; }
 .opt.off { opacity: .35; cursor: default; }
+.opt.drag { cursor: crosshair; }
+/* línea que se arrastra desde el conector hasta otro círculo */
+.wire { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n, .spin { animation: pulse 1.6s ease-in-out infinite; } }
 
 #tip { position: fixed; pointer-events: none; background: #000c; padding: 6px 9px; border-radius: 6px; font-size: 12px; z-index: 3; display: none; }
@@ -128,6 +131,7 @@ const api = async url => { const r = await fetch(url); const j = await r.json();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
+  connect: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
@@ -209,7 +213,10 @@ function addArtist(full, origin = false) {
   nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
   return n;
 }
-function addLink(a, b, path = false) { if (!linked(a, b)) links.push({ source: a, target: b, path }); }
+function addLink(a, b, path = false) {
+  const l = links.find(l => { const [s, t] = ends(l); return s === a.id && t === b.id || s === b.id && t === a.id; });
+  if (!l) links.push({ source: a, target: b, path }); else if (path) l.path = true;
+}
 
 // ---------- Dibujo ----------
 const svg = d3.select('#svg');
@@ -381,19 +388,21 @@ function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }
 
 const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
 const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
-  { key: 'expand', ang: 155, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
+  { key: 'expand', ang: 160, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
-  { key: 'play', ang: 122, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
-  { key: 'next', ang: 90, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
-  { key: 'remove', ang: 58, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
-  { key: 'spotify', ang: 25, label: 'Spotify', icon: () => ICON.spotify,
+  { key: 'connect', ang: 134, label: 'Conectar con otro artista (arrastrar)', icon: () => ICON.connect, drag: true, run: () => {} },
+  { key: 'play', ang: 108, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
+  { key: 'next', ang: 82, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'remove', ang: 56, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
+  { key: 'spotify', ang: 30, label: 'Spotify', icon: () => ICON.spotify,
     run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
 ];
 function renderMenus(all) {
   all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
     .join(enter => {
-      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '')).attr('role', 'button').attr('aria-label', o => o.label)
+      const g = enter.append('g').attr('class', o => 'opt' + (o.primary ? ' primary' : '') + (o.drag ? ' drag' : '')).attr('role', 'button').attr('aria-label', o => o.label)
         .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
+      g.filter(o => o.drag).call(connectDrag);
       const pop = g.append('g').attr('class', 'pop');
       pop.append('circle').attr('class', 'bg').attr('r', 17);
       pop.append('g').attr('class', 'ico');
@@ -411,6 +420,26 @@ function renderMenus(all) {
       ico.select('svg').attr('x', -10).attr('y', -10).attr('width', 20).attr('height', 20);
     });
 }
+
+// ---------- Conector: arrastrar desde un círculo hasta otro teje el camino entre los dos ----------
+const gWire = root.append('g');
+const nodeAt = p => nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) <= radius(n));
+const connectDrag = d3.drag()
+  .on('start', ev => {
+    ev.sourceEvent.stopPropagation();  // no arrastrar el círculo, sino el cable
+    const a = ev.subject.d;
+    gWire.append('line').attr('class', 'wire').attr('x1', a.x).attr('y1', a.y).attr('x2', a.x).attr('y2', a.y);
+  })
+  .on('drag', ev => {
+    const [x, y] = d3.pointer(ev.sourceEvent, root.node());
+    gWire.select('line').attr('x2', x).attr('y2', y);
+  })
+  .on('end', ev => {
+    gWire.selectAll('line').remove();
+    const a = ev.subject.d, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
+    if (!b || b === a) return;  // soltado en el vacío o en sí mismo: no hace nada
+    sfx.select(); connectPath(a, b);
+  });
 
 // ---------- Explorar ----------
 // Reparte las bandas nuevas en abanico hacia fuera (lejos de quien trajo a esa banda)
@@ -525,9 +554,9 @@ function clearEverything() {
   clearMap(); sfx.remove();
 }
 // /from A to B: el servidor busca la cadena de relacionadas; los artistas entran uno a uno, unidos en dorado
-async function tracePath(a, b) {
-  const run = ++runId;
-  clearMap(); autoFit = true; showBusy();
+// Teje un camino: los artistas entran uno a uno (los que ya están se reutilizan), unidos en dorado.
+// place(i, total) da la posición de un artista nuevo; los que ya estaban en el mapa no se mueven.
+async function weavePath(a, b, run, place) {
   const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
   if (run !== runId) return;
   if (!path) { flashError(); return; }
@@ -537,14 +566,30 @@ async function tracePath(a, b) {
     const full = await fulls[i];
     if (run !== runId) return;
     if (!full) continue;
+    const existed = inMap(full);
     const n = addArtist(full, i === 0 || i === path.length - 1);
-    n.x = innerWidth * 0.12 + innerWidth * 0.6 * i / Math.max(1, path.length - 1); n.y = innerHeight / 2 + (i % 2 ? 40 : -40);
+    if (!existed) Object.assign(n, place(i, path.length, prev));
     if (prev) addLink(prev, n, true);
     prev = n;
     render(); sfx.join(i); showBusy();
     await sleep(300);
   }
-  sfx.chord(); wantFit = true; autoFit = false;
+  sfx.chord(); wantFit = true;
+}
+// /from A to B: mapa nuevo con la cadena en fila
+async function tracePath(a, b) {
+  const run = ++runId;
+  clearMap(); autoFit = true; showBusy();
+  await weavePath(a, b, run, (i, total) => ({ x: innerWidth * 0.12 + innerWidth * 0.6 * i / Math.max(1, total - 1), y: innerHeight / 2 + (i % 2 ? 40 : -40) }));
+  autoFit = false;
+}
+// Conector: el camino se teje dentro del mapa actual, entre los dos círculos
+function connectPath(a, b) {
+  const run = ++runId;
+  return working(weavePath(a, b, run, (i, total, prev) => {
+    const t = i / Math.max(1, total - 1), jitter = (i % 2 ? 1 : -1) * 50;  // en la recta entre los dos, en zigzag
+    return { x: a.x + (b.x - a.x) * t + jitter, y: a.y + (b.y - a.y) * t - jitter };
+  }));
 }
 
 // ---------- Terminal ----------
@@ -634,7 +679,13 @@ $('q').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const v = $('q').value.trim();
   if (v.startsWith('/')) { $('results').innerHTML = ''; runCommand(v); return; }
-  $('results').querySelector('li')?.click();
+  clearTimeout(timer);
+  const first = $('results').querySelector('li:not(.cmd)');
+  if (first) return first.click();
+  // Intro antes de que lleguen las sugerencias: se busca ya y se añade el primero
+  if (v.length < 2) return;
+  $('q').value = ''; $('results').innerHTML = '';
+  working(searchArtists(v)).then(res => res[0] ? addOrigin(res[0]) : flashError());
 });
 
 // ---------- Arranque ----------
