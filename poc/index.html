@@ -446,7 +446,7 @@ const ICON = {
 let shownId = null;  // artista que muestra la ficha
 function showPanel(on) {
   $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on);
-  if (!on) { shownId = null; playIcon?.(); }
+  if (!on) { shownId = null; if (window.playerReady) { parking.appendChild(player); playIcon(); } }
 }
 document.body.classList.toggle('folded', localStorage.getItem('weave-folded') === '1');
 $('fold').onclick = () => {
@@ -458,6 +458,7 @@ async function select(n) {
   nodes.forEach(m => m.selected = m === n); render();
   const a = await getArtist(n.id).catch(() => null);
   if (!a || !n.selected) return;  // si mientras cargaba se deseleccionó, no reabrir la ficha
+  parking.appendChild(player);
   showPanel(true); shownId = n.id;
   $('info').innerHTML = `
     ${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}
@@ -469,9 +470,9 @@ async function select(n) {
       <button class="icon" id="pNext" aria-label="Siguiente canción">${ICON.next}</button>
       <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
       <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a></div>`;
-  $('slot').appendChild(player);  // el mismo reproductor viaja de ficha en ficha: la música no se corta
-  $('pPlay').onclick = togglePlay;
+  $('pPlay').onclick = panelPlay;
   $('pNext').onclick = nextTrack;
+  onPanel();
   playIcon();
 }
 
@@ -480,38 +481,61 @@ const player = new Audio();
 player.controls = true;  // la barra de progreso de siempre, dentro de la ficha
 const tracks = new Map();  // id de artista → promesa con sus canciones (las 10 más escuchadas)
 const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
-let queue = { id: null, list: [], i: 0 };  // lo que está sonando
+let queue = { id: null, list: [], i: 0 };  // artista cargado en el reproductor y su canción
+let playToken = 0;  // solo cuenta la última orden (evita carreras si se pulsa rápido)
+// El reproductor nunca sale de la página (sacarlo puede pausarlo): cuando no se muestra, se aparca oculto
+const parking = document.createElement('div');
+parking.hidden = true; document.body.appendChild(parking); parking.appendChild(player);
 const sounding = () => !!player.src && !player.paused;
+const mineSounding = () => sounding() && queue.id === shownId;  // suena el artista de la ficha
 function playIcon() {
-  const on = sounding(), idle = !on && shownId == null;
-  for (const id of ['play', 'pPlay']) {
-    const b = $(id); if (!b) continue;
-    b.innerHTML = on ? ICON.stop : ICON.play; b.setAttribute('aria-pressed', on); b.disabled = idle;
-  }
+  const f = $('play');  // pie: ■ para lo que suene; ▶ reproduce la ficha
+  f.innerHTML = sounding() ? ICON.stop : ICON.play; f.setAttribute('aria-pressed', sounding());
+  f.disabled = !sounding() && shownId == null;
+  const p = $('pPlay');  // ficha: solo habla de su artista
+  if (p) { p.innerHTML = mineSounding() ? ICON.stop : ICON.play; p.setAttribute('aria-pressed', mineSounding()); }
   const e = $('expand'), n = byId.get(shownId);
   e.disabled = !n || degree(n) >= MAX_LINKS || !!n.loading;
 }
-async function playFrom(id, i) {
-  const list = await working(tracksOf(id));
-  if (!list.length) { flashError(); return; }
+// Coloca la barra de audio: en la ficha solo si es de su artista; si no, aparcada
+function placePlayer() {
+  const slot = $('slot');
+  (slot && queue.id === shownId ? slot : parking).appendChild(player);
+}
+async function load(id, i, play) {
+  const t = ++playToken;
+  const list = await (play ? working(tracksOf(id)) : tracksOf(id));
+  if (t !== playToken) return;  // llegó otra orden mientras tanto
+  if (!list.length) { if (play) flashError(); return; }
   queue = { id, list, i: (i + list.length) % list.length };
   player.src = list[queue.i].preview; player.title = list[queue.i].title;
-  player.play().catch(() => flashError());
+  placePlayer();
+  if (play) player.play().catch(() => flashError());
+  playIcon();
 }
-// Si algo suena, lo para; si no, reproduce el artista de la ficha
+const stop = () => { playToken++; player.pause(); player.currentTime = 0; playIcon(); };
+// Pie: si algo suena, lo para; si no, reproduce el artista de la ficha
 function togglePlay() {
-  if (sounding()) { player.pause(); player.currentTime = 0; playIcon(); return; }
-  if (shownId != null) playFrom(shownId, queue.id === shownId ? queue.i : 0);
+  if (sounding()) return stop();
+  if (shownId != null) load(shownId, queue.id === shownId ? queue.i : 0, true);
 }
-// Siguiente canción del artista de la ficha (o del que suena, si la ficha está cerrada)
-function nextTrack() {
-  const id = shownId ?? queue.id;
-  if (id == null) return;
-  playFrom(id, queue.id === id ? queue.i + 1 : 0);
+// Ficha: su ▶ / ■ y «siguiente» actúan siempre sobre el artista de la ficha
+function panelPlay() {
+  if (mineSounding()) return stop();
+  load(shownId, queue.id === shownId ? queue.i : 0, true);
+}
+function nextTrack() { load(shownId, queue.id === shownId ? queue.i + 1 : 0, true); }
+// Al abrir una ficha: si no suena nada, su barra se prepara con su primera canción
+function onPanel() {
+  if (queue.id === shownId) placePlayer();
+  else if (!sounding()) load(shownId, 0, false);
+  else placePlayer();  // suena otro artista: la ficha no muestra la barra ajena
+  playIcon();
 }
 $('play').onclick = togglePlay;
 ['play', 'pause', 'ended', 'emptied'].forEach(ev => player.addEventListener(ev, playIcon));
-player.addEventListener('ended', () => nextTrack());  // al acabar una, la siguiente
+// Al acabar una canción sigue la siguiente del MISMO artista que sonaba, aunque la ficha sea de otro
+player.addEventListener('ended', () => { if (queue.id != null) load(queue.id, queue.i + 1, true); });
 window.playerReady = true;
 playIcon();
 
@@ -588,7 +612,8 @@ $('q').addEventListener('keydown', e => {
 // ---------- Comandos ----------
 const COMMANDS = [
   { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
-  { usage: '/label', fill: '/label', re: /^\/labels?$/i, run: () => toggleLabels() },
+  { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
+    run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => { listRun++; clearAll(); sfx.remove(); } },
 ];
 function showCommands(q) {
@@ -649,8 +674,8 @@ $('clear').innerHTML = ICON.clear;
 $('expand').innerHTML = ICON.explore;
 $('expand').onclick = () => { const n = byId.get(shownId); if (n) expand(n); };
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
-function toggleLabels() {
-  showLabels = !showLabels; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
+function toggleLabels(on = !showLabels) {
+  showLabels = on; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
   sfx.select();
   render();
 }
