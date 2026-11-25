@@ -46,6 +46,17 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { #busy .thread, #busy .n { animation: pulse 1.6s ease-in-out infinite; } }
 #info { position: fixed; top: 72px; right: 0; bottom: 0; width: 320px;  /* bajo la barra, que va siempre de lado a lado */ z-index: 4; display: none; flex-direction: column; gap: 8px;
         padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
+/* Ficha plegable: se desliza a la derecha y deja una pestaña para recuperarla */
+#info { transition: transform .3s ease; }
+body.folded #info { transform: translateX(calc(100% + 2px)); }
+#fold { position: fixed; top: 88px; right: 320px; z-index: 4; display: none; width: 26px; height: 48px; padding: 0;
+        border-radius: 8px 0 0 8px; background: var(--panel); border: 1px solid var(--line); border-right: 0;
+        color: var(--muted); transition: right .3s ease; }
+#fold svg { width: 16px; height: 16px; transition: transform .3s ease; }
+body.panel #fold { display: grid; place-items: center; }
+body.folded #fold { right: 0; }
+body.folded #fold svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { #info, #fold, #fold svg { transition: none; } }
 #info img { width: 100%; flex: 0 1 auto; min-height: 0; max-height: 288px; object-fit: cover; border-radius: 10px; }
 #info h2 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
 #info .row { margin-top: auto; align-items: center; }
@@ -94,6 +105,7 @@ audio { width: 100%; height: 34px; flex: none; }
   <ul id="results"></ul>
 </div>
 <div id="info"></div>
+<button id="fold" aria-label="Plegar o desplegar la ficha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
 <div id="legend"></div>
 <div id="busy" role="status" aria-label="Cargando">
   <svg viewBox="0 0 128 128">
@@ -417,13 +429,22 @@ const ICON = {
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
 };
-function showPanel(on) { $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on); }
+let shownId = null;  // artista que muestra la ficha
+function showPanel(on) {
+  $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on);
+  if (!on) shownId = null;
+}
+document.body.classList.toggle('folded', localStorage.getItem('weave-folded') === '1');
+$('fold').onclick = () => {
+  const folded = document.body.classList.toggle('folded');
+  localStorage.setItem('weave-folded', folded ? '1' : '0'); sfx.select();
+};
 
 async function select(n) {
   nodes.forEach(m => m.selected = m === n); render();
   const a = await getArtist(n.id).catch(() => null);
   if (!a || !n.selected) return;  // si mientras cargaba se deseleccionó, no reabrir la ficha
-  showPanel(true);
+  showPanel(true); shownId = n.id;
   $('info').innerHTML = `
     ${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}
     <h2>${esc(a.name)}</h2>
@@ -554,7 +575,8 @@ function removeNode(n) {
   links.splice(0, links.length, ...restLinks.filter(l => ends(l).every(id => keep.has(id))));
   byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
   nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
-  showPanel(false); $('tip').style.display = 'none';
+  if (!byId.has(shownId)) showPanel(false);  // la ficha solo se cierra si su artista ya no está en el mapa
+  $('tip').style.display = 'none';
   sfx.remove();
   status('');
   render();
@@ -614,8 +636,8 @@ async function tracePath(a, b) {
   autoFit = false;
 }
 
-// Clic en el fondo: quita la selección y cierra la ficha (pan/arrastre no cuenta como clic: d3.zoom lo filtra)
-svg.on('click', () => { nodes.forEach(m => m.selected = false); showPanel(false); $('tip').style.display = 'none'; render(); });
+// Clic en el fondo: solo quita el resaltado; la ficha se queda con el último artista
+svg.on('click', () => { nodes.forEach(m => m.selected = false); $('tip').style.display = 'none'; render(); });
 
 // ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
 async function originsFromUrl() {
