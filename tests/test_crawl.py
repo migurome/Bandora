@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.fakes import FakeDeezer
+from tests.fakes import FakeDeezer, FakeLastFm
 from tests.test_ingest import world
-from weave.ingest import crawl, import_poc_cache, seed, spotify_artists
+from weave.ingest import crawl, enrich_pending, import_poc_cache, seed, spotify_artists
 
 
 def crawl_rows(store):
@@ -77,3 +77,22 @@ class CrawlTest(unittest.TestCase):
         self.assertEqual(store.artist(ext)["level"], 1)
         self.assertEqual(store.by_alias("plateroytu"), store.by_source("deezer", 6135))
         self.assertEqual(sum(dz.calls.values()) + sum(mb.calls.values()), 0)
+
+    def test_enrich_command_is_resumable(self):
+        store, dz, mb, ing = world(FakeLastFm({}))
+        a = store.upsert_deezer(9148, "Marea", 10); b = store.upsert_deezer(4163, "Extremoduro", 5)
+        store.set_level(a, 2); store.set_level(b, 2)
+        self.assertEqual(enrich_pending(ing, limit=1), 1)
+        self.assertEqual(store.pending_lastfm(10), [b])
+        self.assertEqual(enrich_pending(ing), 1)
+        self.assertEqual(store.pending_lastfm(10), [])
+
+    def test_enrich_failure_is_retried_later(self):
+        class Broken:
+            def top_tags(self, name): raise OSError("sin red")
+            def similar(self, name, limit=30): raise OSError("sin red")
+        store, dz, mb, ing = world(Broken())
+        a = store.upsert_deezer(9148, "Marea", 10)
+        store.set_level(a, 2)
+        enrich_pending(ing)  # termina (no se queda en bucle) …
+        self.assertEqual(store.pending_lastfm(10), [a])  # … y el artista sigue pendiente para otro intento

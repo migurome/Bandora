@@ -5,11 +5,13 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from .families import clean_tags
 from .sources import SourceError
 from .text import norm
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "weave.db"
+KEY_PATH = ROOT / "data" / "lastfm_key.txt"  # fuera de git; sin ella no se usa Last.fm
 EXPORT_DIR = ROOT / "resources" / "Spotify Account Data"
 POC_CACHE = ROOT / "poc" / "cache"
 
@@ -17,8 +19,8 @@ FULL, RELATED = 2, 1
 
 
 class Ingestor:
-    def __init__(self, store, deezer, mb):
-        self.store, self.dz, self.mb = store, deezer, mb
+    def __init__(self, store, deezer, mb, lastfm=None):
+        self.store, self.dz, self.mb, self.lastfm = store, deezer, mb, lastfm
 
     def _deezer_id(self, artist_id):
         dz = self.store.ext_id(artist_id, "deezer")
@@ -62,9 +64,38 @@ class Ingestor:
                 genres = []
             self.store.set_genres(artist_id, [(g, len(genres) - i) for i, g in enumerate(genres)], "deezer")
         self._save_related(artist_id, related)
+        self.enrich_lastfm(artist_id)
         artist_id = self.store.dedupe_by_name(artist_id)
         self.store.set_level(artist_id, FULL)
         return artist_id
+
+    def enrich_lastfm(self, artist_id: int) -> bool:
+        """Géneros de Last.fm (filtrados) y sus parecidos como relaciones con peso.
+        Devuelve False si Last.fm no está o falla: el artista queda pendiente para otro relleno."""
+        if not self.lastfm:
+            return False
+        name = self.store.artist(artist_id)["name"]
+        try:
+            tags, similar = self.lastfm.top_tags(name), self.lastfm.similar(name)
+        except Exception:  # noqa: BLE001 - sin Last.fm se queda con MusicBrainz/Deezer
+            return False
+        genres = clean_tags(tags, name)
+        if genres:
+            self.store.set_genres(artist_id, genres, "lastfm")
+        ids, weights = [], []
+        for i, s in enumerate(sorted(similar, key=lambda s: -s["match"])):
+            aid = self.store.by_alias(norm(s["name"]))
+            if aid is None and i < 10:  # solo los más parecidos merecen una búsqueda en Deezer
+                try:
+                    aid = self.resolve_name(s["name"])
+                except (SourceError, OSError):
+                    aid = None
+            if aid and aid != artist_id and aid not in ids:
+                ids.append(aid); weights.append(s["match"])
+        if ids:
+            self.store.set_related(artist_id, ids, "lastfm", weights)
+        self.store.mark_lastfm(artist_id)
+        return True
 
     def top_tracks(self, artist_id: int) -> list[dict]:
         """Canciones con preview, siempre en vivo: las URLs de preview de Deezer caducan."""
@@ -197,14 +228,31 @@ def import_poc_cache(store, cache_dir: Path) -> int:
     return used
 
 
-def open_default():
+def open_default(db_path=DB_PATH, key_path=KEY_PATH):
     from .db import connect
-    from .http import DEEZER, MUSICBRAINZ, Fetcher
-    from .sources import Deezer, MusicBrainz
+    from .http import DEEZER, LASTFM, MUSICBRAINZ, Fetcher
+    from .sources import Deezer, LastFm, MusicBrainz
     from .store import Store
-    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12})
-    store = Store(connect(DB_PATH))
-    return store, Ingestor(store, Deezer(f), MusicBrainz(f))
+    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12, LASTFM: 0.25})
+    store = Store(connect(db_path))
+    key = Path(key_path).read_text(encoding="utf-8").strip() if Path(key_path).exists() else ""
+    return store, Ingestor(store, Deezer(f), MusicBrainz(f), LastFm(f, key) if key else None)
+
+
+def enrich_pending(ingestor, limit=None, on_progress=None) -> int:
+    """Pasa por Last.fm los artistas completos que aún no lo tienen (reanudable gracias a artist.lastfm_at)."""
+    done, tried = 0, set()
+    while limit is None or done < limit:
+        # los que fallan en esta pasada se saltan sin marcar: quedan pendientes para el próximo relleno
+        nxt = next((a for a in ingestor.store.pending_lastfm(len(tried) + 1) if a not in tried), None)
+        if nxt is None:
+            break
+        tried.add(nxt)
+        if ingestor.enrich_lastfm(nxt):
+            done += 1
+            if on_progress:
+                on_progress(done, nxt)
+    return done
 
 
 def _status(store):
@@ -222,6 +270,8 @@ def main(argv=None):
     c = sub.add_parser("crawl", help="completa la cola (reanudable; Ctrl+C para parar)")
     c.add_argument("--limit", type=int)
     sub.add_parser("status", help="artistas por nivel y estado de la cola")
+    lf = sub.add_parser("lastfm", help="completa con Last.fm los artistas que aún no lo tienen (reanudable)")
+    lf.add_argument("--limit", type=int)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # la consola de Windows usa cp1252 por defecto
@@ -241,6 +291,15 @@ def main(argv=None):
             print(f"\nFin: {r}")
         except KeyboardInterrupt:  # lo ya guardado se queda; el artista a medias se repite al relanzar
             print("\nInterrumpido. Relanza «crawl» para continuar.")
+    elif args.cmd == "lastfm":
+        if not ing.lastfm:
+            print(f"Falta la clave de Last.fm en {KEY_PATH}")
+        else:
+            try:
+                n = enrich_pending(ing, args.limit, lambda d, aid: print(f"{chr(13)}completados con Last.fm: {d}", end="", flush=True))
+                print(f"{chr(10)}Fin: {n} artistas.")
+            except KeyboardInterrupt:
+                print(chr(10) + "Interrumpido. Relanza «lastfm» para continuar.")
     _status(store)
 
 

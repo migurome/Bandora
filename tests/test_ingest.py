@@ -1,12 +1,12 @@
 import unittest
 
-from tests.fakes import FakeDeezer, FakeMusicBrainz
+from tests.fakes import FakeDeezer, FakeLastFm, FakeMusicBrainz
 from weave.db import connect
 from weave.ingest import Ingestor
 from weave.store import Store
 
 
-def world():
+def world(lastfm=None):
     dz = FakeDeezer({
         9148: {"name": "Marea", "fans": 53022, "related": [4163, 6135, 1, 2, 3, 4],
                "top": {"title": "Corazón de mimbre", "preview": "p.mp3"}, "genres": ["alternativo", "rock"]},
@@ -22,7 +22,7 @@ def world():
         "B.B.King": {"mbid": "mb-bb", "country": "US", "genres": [("blues", 5)]},
     })
     store = Store(connect(":memory:"))
-    return store, dz, mb, Ingestor(store, dz, mb)
+    return store, dz, mb, Ingestor(store, dz, mb, lastfm)
 
 
 class IngestTest(unittest.TestCase):
@@ -83,3 +83,37 @@ class IngestTest(unittest.TestCase):
         res = ing.search("b.b. king")
         self.assertEqual([r["name"] for r in res], ["B.B. King"])
         self.assertTrue(isinstance(res[0]["id"], int))
+
+
+MAREA_LFM = {"Marea": {"tags": [("Rock Urbano", 35), ("spanish", 20)],
+                       "similar": [{"name": "La Fuga", "match": 1.0}, {"name": "Extremoduro", "match": 0.97},
+                                   {"name": "Nadie Existe", "match": 0.9}]}}
+
+
+class LastFmIngestTest(unittest.TestCase):
+    def test_full_ingest_uses_lastfm_genres_and_similar(self):
+        store, dz, mb, ing = world(FakeLastFm(MAREA_LFM))
+        a = store.artist(ing.ensure_full(store.upsert_deezer(9148, "Marea")))
+        self.assertEqual((a["genres"][0], a["family"]), ("rock urbano", "Rock"))
+        self.assertEqual({r["name"] for r in a["related"][:2]}, {"La Fuga", "Extremoduro"})
+
+    def test_lastfm_similar_unresolved_is_skipped(self):
+        store, dz, mb, ing = world(FakeLastFm(MAREA_LFM))
+        a = store.artist(ing.ensure_full(store.upsert_deezer(9148, "Marea")))
+        self.assertNotIn("Nadie Existe", [r["name"] for r in a["related"]])
+
+    def test_lastfm_failure_does_not_break_ingest(self):
+        class Broken:
+            def top_tags(self, name): raise OSError("Last.fm caído")
+            def similar(self, name, limit=30): raise OSError("Last.fm caído")
+        store, dz, mb, ing = world(Broken())
+        a = store.artist(ing.ensure_full(store.upsert_deezer(9148, "Marea")))
+        self.assertEqual((a["level"], a["genres"][0]), (2, "rock"))
+
+    def test_open_without_lastfm_key(self):
+        import os, tempfile
+        from weave.ingest import open_default
+        d = tempfile.mkdtemp()
+        store, ing = open_default(db_path=os.path.join(d, "w.db"), key_path=os.path.join(d, "no_existe.txt"))
+        self.assertIsNone(ing.lastfm)
+        store.conn.close()
