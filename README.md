@@ -17,13 +17,14 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 |---|---|
 | Añadir artista | Escríbelo en la barra y elige una sugerencia |
 | Abrir / cerrar su menú | Clic en el círculo |
-| Menú del círculo | Desplegar relacionadas · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Menú del círculo | Desplegar relacionadas · chincheta · ▶/❚❚ · siguiente canción · quitar · Spotify |
+| Favoritas | Chincheta del menú; ✕ deja solo las favoritas y un segundo ✕ borra todo |
 | Desplegar relacionadas | Botón amarillo del menú (máx. 5 conexiones por artista) |
 | Conectar dos artistas | Pincha en un círculo y arrastra hasta otro |
 | Quitar artista | Papelera del menú o Supr (se lleva la rama que colgaba de él) |
 | Camino entre artistas | `/from Marea to Michael Jackson` (Tab completa los nombres) |
 | Leyenda y filtro de géneros | `/label on` · `/label off` |
-| Limpiar mapa y parar música | `/clear` o ✕ |
+| Limpiar mapa y parar música | `/clear` o ✕ (dos veces si hay favoritas) |
 
 ## Base de datos de artistas
 

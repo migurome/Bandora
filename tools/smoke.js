@@ -18,7 +18,7 @@ setTimeout(async () => {
     ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
     ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
     clk(nodeG('Marea')); await sleep(300);
-    ok('menu 5 opciones', document.querySelectorAll('g.opt').length === 5);
+    ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
     clk(opt('play')); await sleep(2000);
@@ -56,7 +56,13 @@ setTimeout(async () => {
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length > 5 && links.every(l => l.path));
+    // chincheta: el primer ✕ deja solo las favoritas; el segundo borra todo
+    const fav = nodes.find(n => n.name === 'Marea'); closeAll(); clk(nodeG('Marea')); await sleep(300); clk(opt('pin')); await sleep(200);
+    ok('chincheta marca', fav.pinned && getComputedStyle(nodeG('Marea').querySelector('.pinmark')).display !== 'none');
     $('clear').click(); await sleep(300);
+    ok('✕ deja las favoritas', nodes.length === 1 && nodes[0] === fav);
+    $('clear').click(); await sleep(300);
+    ok('segundo ✕ borra todo', nodes.length === 0);
     $('q').value = 'Extremoduro'; $('q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await sleep(4000);
     ok('intro inmediato añade el primero', nodes.length === 1 && nodes[0].name === 'Extremoduro');
     $('clear').click(); await sleep(300);
