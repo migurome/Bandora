@@ -81,6 +81,11 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: pulse 1.6s ease-in-out infinite; } }
 @keyframes pulse { 50% { opacity: .3; } }
 .node text { pointer-events: none; user-select: none; }
+/* Artista sonando: foto apagada y ▶ encima */
+.node .pic { transition: filter .3s; }
+.node.playing .pic { filter: brightness(.4); }
+.node .playmark { fill: #fff; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.node.playing .playmark { opacity: .95; animation: pulse 1.6s ease-in-out infinite; }
 .link { stroke: #4a5060; stroke-opacity: .7; }
 .link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
 .node, .link { transition: opacity .25s; }
@@ -261,8 +266,10 @@ function render() {
   // Foto recortada en círculo (modo fotos): clipPath propio por nodo
   e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');
   e.append('image').attr('class', 'pic').attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', d => `url(#clip${d.id})`);
+  e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
   e.append('text').attr('text-anchor', 'middle').attr('class', 'in');
-  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : ''));
+  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
+  all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
   // Sin género todavía: gris con borde punteado (se colorea una sola vez, al llegar el género)
   all.select('clipPath circle').attr('r', radius);
   all.select('.pic').attr('display', d => photoMode && d.picture ? null : 'none').attr('href', d => d.picture || null)
@@ -488,7 +495,11 @@ const parking = document.createElement('div');
 parking.hidden = true; document.body.appendChild(parking); parking.appendChild(player);
 const sounding = () => !!player.src && !player.paused;
 const mineSounding = () => sounding() && queue.id === shownId;  // suena el artista de la ficha
+// ¿Está sonando este artista? (marca su círculo)
+function isPlaying(d) { return !!window.playerReady && sounding() && queue.id === d.id; }
+function markPlaying() { gNodes.selectAll('g.node').classed('playing', isPlaying); }
 function playIcon() {
+  markPlaying();
   const f = $('play');  // pie: ■ para lo que suene; ▶ reproduce la ficha
   f.innerHTML = sounding() ? ICON.stop : ICON.play; f.setAttribute('aria-pressed', sounding());
   f.disabled = !sounding() && shownId == null;
