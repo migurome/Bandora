@@ -6,7 +6,8 @@ import unittest
 from weave.db import connect
 from weave.store import Store
 
-API_KEYS = {"id", "name", "fans", "picture", "link", "genres", "country", "preview", "previewTitle", "related", "level"}
+API_KEYS = {"id", "name", "fans", "picture", "link", "genres", "country", "preview", "previewTitle", "related", "level",
+            "family", "color", "familyOrder"}
 
 
 class StoreTest(unittest.TestCase):
@@ -42,6 +43,12 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(self.s.artist(a)["genres"][0], "rock")
         b = self.s.upsert_deezer(1, "Nadie")
         self.assertEqual(self.s.artist(b)["genres"], ["sin género"])
+
+    def test_artist_has_family_fields(self):
+        a = self.s.upsert_deezer(9148, "Marea")
+        self.s.set_genres(a, [("spanish", 9), ("hard rock", 5)], "musicbrainz")
+        r = self.s.artist(a)
+        self.assertEqual((r["family"], r["color"], r["familyOrder"]), ("Rock", "#a3c9f5", 8))
 
     def test_level_never_decreases(self):
         a = self.s.upsert_deezer(9148, "Marea")

@@ -8,7 +8,8 @@ from http.server import ThreadingHTTPServer
 from tests.test_ingest import world
 from weave import server
 
-API_KEYS = {"id", "name", "fans", "picture", "link", "genres", "country", "preview", "previewTitle", "related", "level"}
+API_KEYS = {"id", "name", "fans", "picture", "link", "genres", "country", "preview", "previewTitle", "related", "level",
+            "family", "color", "familyOrder"}
 
 
 class Offline:

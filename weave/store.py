@@ -2,6 +2,7 @@
 import threading
 from datetime import datetime, timezone
 
+from .families import color_of, family_of_list, order_of
 from .text import norm
 
 SOURCE_ORDER = {"musicbrainz": 0, "deezer": 1}
@@ -173,8 +174,11 @@ class Store:
         genres = [g["name"] for g in sorted(genres, key=lambda g: (SOURCE_ORDER.get(g["source"], 9), -(g["weight"] or 0)))]
         related = self._read("""SELECT r.b AS id, x.name, x.fans FROM relation r JOIN artist x ON x.id = r.b
                                 WHERE r.a=? AND r.kind='similar' ORDER BY r.rank""", (artist_id,))
+        genres = _dedupe(genres) or ["sin género"]
+        fam = family_of_list(genres)
         return {"id": a["id"], "name": a["name"], "fans": a["fans"], "picture": a["picture"], "link": a["link"],
-                "genres": _dedupe(genres) or ["sin género"], "country": a["country"], "preview": a["preview"],
+                "family": fam, "color": color_of(fam), "familyOrder": order_of(fam),
+                "genres": genres, "country": a["country"], "preview": a["preview"],
                 "previewTitle": a["preview_title"], "related": [dict(r) for r in _dedupe_rows(related)], "level": a["level"]}
 
     def search(self, text: str, limit=6) -> list[dict]:
