@@ -70,6 +70,44 @@ class Store:
         with self._write() as c:
             c.execute("UPDATE artist SET level=MAX(level, ?) WHERE id=?", (level, artist_id))
 
+    # ---------- identidad ----------
+    # Reglas (aprendidas en la PoC): mismo (fuente, id) → mismo artista; mismo MBID → mismo artista;
+    # mismo nombre normalizado sin MBIDs en conflicto → mismo artista; MBIDs distintos → artistas distintos.
+    def merge(self, keep: int, drop: int) -> int:
+        with self._write() as c:
+            return _merge(c, keep, drop)
+
+    def attach_mbid(self, artist_id: int, mbid: str) -> int:
+        with self._write() as c:
+            row = c.execute("SELECT id FROM artist WHERE mbid=?", (mbid,)).fetchone()
+            if row and row[0] != artist_id:
+                return _merge(c, row[0], artist_id)
+            current = c.execute("SELECT mbid FROM artist WHERE id=?", (artist_id,)).fetchone()[0]
+            if current is None:
+                c.execute("UPDATE artist SET mbid=? WHERE id=?", (mbid, artist_id))
+            return artist_id  # si ya tenía otro MBID no se toca: sería otro artista con el mismo id de Deezer
+
+    def dedupe_by_name(self, artist_id: int) -> int:
+        with self._write() as c:
+            name, mbid = c.execute("SELECT name, mbid FROM artist WHERE id=?", (artist_id,)).fetchone()
+            k = norm(name)
+            if not k:
+                return artist_id
+            others = c.execute("""SELECT DISTINCT a.id, a.mbid FROM alias al JOIN artist a ON a.id = al.artist_id
+                                  WHERE al.norm=? AND a.id<>?""", (k, artist_id)).fetchall()
+            same = [o[0] for o in others if o[1] is None or mbid is None or o[1] == mbid]
+            if not same:
+                return artist_id
+            ids = sorted(same + [artist_id])
+            survivor = ids[0]
+            for other in ids[1:]:
+                mb = c.execute("SELECT mbid FROM artist WHERE id=?", (survivor,)).fetchone()[0]
+                omb = c.execute("SELECT mbid FROM artist WHERE id=?", (other,)).fetchone()[0]
+                if mb and omb and mb != omb:
+                    continue  # dos candidatos con MBIDs distintos entre sí: homónimos
+                _merge(c, survivor, other)
+            return survivor
+
     # ---------- lecturas ----------
     def by_source(self, source: str, ext_id) -> int | None:
         rows = self._read("SELECT artist_id FROM source_id WHERE source=? AND ext_id=?", (source, str(ext_id)))
@@ -95,6 +133,33 @@ class Store:
         rows = self._read("""SELECT DISTINCT a.id, a.name, a.fans, a.picture FROM alias al JOIN artist a ON a.id = al.artist_id
                              WHERE al.norm LIKE ? || '%' ORDER BY a.level = 2 DESC, a.fans DESC LIMIT ?""", (k, limit))
         return [dict(r) for r in rows]
+
+
+def _merge(c, keep: int, drop: int) -> int:
+    """Funde drop en keep dentro de la transacción abierta en c."""
+    if keep == drop:
+        return keep
+    k = c.execute("SELECT * FROM artist WHERE id=?", (keep,)).fetchone()
+    d = c.execute("SELECT * FROM artist WHERE id=?", (drop,)).fetchone()
+    if k is None or d is None:
+        return keep
+    c.execute("UPDATE source_id SET artist_id=? WHERE artist_id=?", (keep, drop))
+    c.execute("INSERT OR IGNORE INTO alias SELECT ?, name, norm FROM alias WHERE artist_id=?", (keep, drop))
+    c.execute("INSERT OR IGNORE INTO genre SELECT ?, name, weight, source FROM genre WHERE artist_id=?", (keep, drop))
+    # relaciones: se reescribe drop→keep en ambos extremos, sin duplicar y sin crear a == b
+    c.execute("""INSERT OR IGNORE INTO relation
+                 SELECT CASE WHEN a=:d THEN :k ELSE a END, CASE WHEN b=:d THEN :k ELSE b END, kind, rank, source
+                 FROM relation WHERE (a=:d OR b=:d)
+                   AND (CASE WHEN a=:d THEN :k ELSE a END) <> (CASE WHEN b=:d THEN :k ELSE b END)""", {"d": drop, "k": keep})
+    c.execute("UPDATE OR IGNORE crawl SET artist_id=? WHERE artist_id=?", (keep, drop))
+    c.execute("DELETE FROM artist WHERE id=?", (drop,))  # en cascada: lo que quedaba de drop
+    best = d if (d["fans"] or 0) > (k["fans"] or 0) else k
+    c.execute("""UPDATE artist SET name=?, mbid=COALESCE(mbid, ?), fans=?, level=?, country=COALESCE(country, ?),
+                 picture=COALESCE(picture, ?), link=COALESCE(link, ?), preview=COALESCE(preview, ?),
+                 preview_title=COALESCE(preview_title, ?) WHERE id=?""",
+              (best["name"], d["mbid"], max(k["fans"] or 0, d["fans"] or 0), max(k["level"], d["level"]),
+               d["country"], d["picture"], d["link"], d["preview"], d["preview_title"], keep))
+    return keep
 
 
 def _now():
