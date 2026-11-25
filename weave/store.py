@@ -6,6 +6,7 @@ from .families import color_of, family_of_list, order_of
 from .text import norm
 
 SOURCE_ORDER = {"lastfm": 0, "musicbrainz": 1, "deezer": 2}  # prioridad de géneros
+KINDS = ["similar", "influence", "member"]  # motivo de la relación, de menos a más fuerte
 
 
 class Store:
@@ -145,6 +146,28 @@ class Store:
         states = dict(self._read("SELECT state, COUNT(*) FROM crawl GROUP BY state"))
         return {"levels": levels, "crawl": states}
 
+    def add_relations(self, pairs, kind: str, source: str):
+        """Relaciones simétricas (miembros, influencias): se guardan en los dos sentidos."""
+        rows = [(a, b, kind, source) for x, y in pairs if x != y for a, b in ((x, y), (y, x))]
+        with self._write() as c:
+            c.executemany("INSERT OR IGNORE INTO relation (a, b, kind, source) VALUES (?, ?, ?, ?)", rows)
+
+    def by_mbid(self, mbid: str) -> int | None:
+        rows = self._read("SELECT id FROM artist WHERE mbid=?", (mbid,))
+        return rows[0][0] if rows else None
+
+    def mbid(self, artist_id: int) -> str | None:
+        rows = self._read("SELECT mbid FROM artist WHERE id=?", (artist_id,))
+        return rows[0][0] if rows else None
+
+    def mark_wikidata(self, artist_id: int):
+        with self._write() as c:
+            c.execute("UPDATE artist SET wikidata_at=? WHERE id=?", (_now(), artist_id))
+
+    def pending_wikidata(self, limit: int) -> list[int]:
+        return [r[0] for r in self._read("SELECT id FROM artist WHERE level >= 2 AND wikidata_at IS NULL ORDER BY fans DESC, id LIMIT ?",
+                                         (limit,))]
+
     def mark_lastfm(self, artist_id: int):
         with self._write() as c:
             c.execute("UPDATE artist SET lastfm_at=? WHERE id=?", (_now(), artist_id))
@@ -166,7 +189,7 @@ class Store:
     def edges(self, artist_id=None) -> list[tuple[int, int]]:
         """Relaciones de parecido (a, b): todas, o solo las que salen de artist_id en orden de parecido."""
         if artist_id is None:
-            return [tuple(r) for r in self._read("SELECT a, b FROM relation WHERE kind='similar'")]
+            return [tuple(r) for r in self._read("SELECT DISTINCT a, b FROM relation")]  # todas las clases: también sirven para caminos
         return [tuple(r) for r in self._read("SELECT a, b FROM relation WHERE kind='similar' AND a=? ORDER BY rank", (artist_id,))]
 
     def by_alias(self, k: str) -> int | None:
@@ -182,18 +205,23 @@ class Store:
         a = rows[0]
         genres = self._read("SELECT name, weight, source FROM genre WHERE artist_id=?", (artist_id,))
         genres = [g["name"] for g in sorted(genres, key=lambda g: (SOURCE_ORDER.get(g["source"], 9), -(g["weight"] or 0)))]
-        # Orden combinado: Last.fm aporta su parecido (0-1) y Deezer su posición; quien está en las dos sube
-        related = self._read("""SELECT r.b AS id, x.name, x.fans FROM relation r JOIN artist x ON x.id = r.b
-                                WHERE r.a=? AND r.kind='similar' GROUP BY r.b
-                                ORDER BY SUM(CASE r.source WHEN 'lastfm' THEN 0.6 * COALESCE(r.weight, 0)
-                                                           WHEN 'deezer' THEN 0.4 * (1 - COALESCE(r.rank, 25) / 25.0)
-                                                           ELSE 0 END) DESC, r.b""", (artist_id,))
+        # Orden combinado: Last.fm aporta su parecido (0-1), Deezer su posición; quien está en las dos sube.
+        # Las sinergias de Wikidata suman un plus: compartir miembros (+0,5) o influencia (+0,3).
+        related = self._read("""SELECT r.b AS id, x.name, x.fans,
+                                       MAX(CASE r.kind WHEN 'member' THEN 2 WHEN 'influence' THEN 1 ELSE 0 END) AS k
+                                FROM relation r JOIN artist x ON x.id = r.b WHERE r.a=? GROUP BY r.b
+                                ORDER BY SUM(CASE WHEN r.kind = 'member' THEN 0.5
+                                                  WHEN r.kind = 'influence' THEN 0.3
+                                                  WHEN r.source = 'lastfm' THEN 0.6 * COALESCE(r.weight, 0)
+                                                  WHEN r.source = 'deezer' THEN 0.4 * (1 - COALESCE(r.rank, 25) / 25.0)
+                                                  ELSE 0 END) DESC, r.b""", (artist_id,))
         genres = _dedupe(genres) or ["sin género"]
         fam = family_of_list(genres)
         return {"id": a["id"], "name": a["name"], "fans": a["fans"], "picture": a["picture"], "link": a["link"],
                 "family": fam, "color": color_of(fam), "familyOrder": order_of(fam),
                 "genres": genres, "country": a["country"], "preview": a["preview"],
-                "previewTitle": a["preview_title"], "related": [dict(r) for r in _dedupe_rows(related)], "level": a["level"]}
+                "previewTitle": a["preview_title"], "level": a["level"],
+                "related": [{"id": r["id"], "name": r["name"], "fans": r["fans"], "kind": KINDS[r["k"]]} for r in related]}
 
     def search(self, text: str, limit=6) -> list[dict]:
         k = norm(text)
@@ -238,8 +266,3 @@ def _now():
 def _dedupe(xs):
     seen = set()
     return [x for x in xs if not (x in seen or seen.add(x))]
-
-
-def _dedupe_rows(rows):
-    seen = set()
-    return [r for r in rows if not (r["id"] in seen or seen.add(r["id"]))]

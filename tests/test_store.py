@@ -32,7 +32,7 @@ class StoreTest(unittest.TestCase):
         a = self.s.artist(marea)
         self.assertEqual(set(a), API_KEYS)
         self.assertEqual([r["name"] for r in a["related"]], ["Platero y tú", "Extremoduro"])
-        self.assertEqual(a["related"][1], {"id": ext, "name": "Extremoduro", "fans": 110115})
+        self.assertEqual(a["related"][1], {"id": ext, "name": "Extremoduro", "fans": 110115, "kind": "similar"})
         self.assertEqual((a["genres"], a["country"], a["previewTitle"], a["level"]), (["rock"], "ES", "Corazón de mimbre", 1))
         self.assertIsNone(self.s.artist(99999))
 
@@ -63,7 +63,7 @@ class StoreTest(unittest.TestCase):
             INSERT INTO artist (id, name, fans, level) VALUES (1, 'Marea', 53022, 2);""")
         old.commit(); old.close()
         conn = connect(path)
-        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "2")
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "3")  # siempre migra a la última versión
         self.assertEqual(conn.execute("SELECT name, fans, level FROM artist").fetchone()[:], ("Marea", 53022, 2))
         self.assertIn("weight", [r[1] for r in conn.execute("PRAGMA table_info(relation)")])
         self.assertIn("lastfm_at", [r[1] for r in conn.execute("PRAGMA table_info(artist)")])
@@ -92,6 +92,39 @@ class StoreTest(unittest.TestCase):
         self.s.set_level(a, 2); self.s.set_level(b, 2)
         self.s.mark_lastfm(a)
         self.assertEqual(self.s.pending_lastfm(10), [b])
+
+    def test_migrates_v2_database(self):
+        path = os.path.join(tempfile.mkdtemp(), "v2.db")
+        c = connect(path)
+        c.execute("ALTER TABLE artist DROP COLUMN wikidata_at")
+        c.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+        c.execute("INSERT INTO artist (id, name, level) VALUES (1, 'Marea', 2)")
+        c.close()
+        conn = connect(path)
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "3")
+        self.assertIn("wikidata_at", [r[1] for r in conn.execute("PRAGMA table_info(artist)")])
+        self.assertEqual(conn.execute("SELECT name FROM artist").fetchone()[0], "Marea")
+        conn.close()
+
+    def test_member_relations_are_symmetric(self):
+        a, b = self.s.upsert_deezer(1, "Extremoduro"), self.s.upsert_deezer(2, "Platero y tú")
+        self.s.add_relations([(a, b)], "member", "wikidata")
+        self.assertEqual([(r["id"], r["kind"]) for r in self.s.artist(b)["related"]], [(a, "member")])
+        self.assertEqual([(r["id"], r["kind"]) for r in self.s.artist(a)["related"]], [(b, "member")])
+
+    def test_member_boosts_order(self):
+        a, x, y = (self.s.upsert_deezer(i, n) for i, n in [(1, "A"), (2, "X"), (3, "Y")])
+        self.s.set_related(a, [x, y])
+        self.s.add_relations([(a, y)], "member", "wikidata")
+        self.assertEqual([(r["id"], r["kind"]) for r in self.s.artist(a)["related"]], [(y, "member"), (x, "similar")])
+
+    def test_by_mbid_and_pending_wikidata(self):
+        a, b = self.s.upsert_deezer(1, "A", 10), self.s.upsert_deezer(2, "B", 5)
+        self.s.attach_mbid(a, "mb-a")
+        self.assertEqual((self.s.by_mbid("mb-a"), self.s.mbid(a), self.s.mbid(b)), (a, "mb-a", None))
+        self.s.set_level(a, 2); self.s.set_level(b, 2)
+        self.s.mark_wikidata(a)
+        self.assertEqual(self.s.pending_wikidata(10), [b])
 
     def test_level_never_decreases(self):
         a = self.s.upsert_deezer(9148, "Marea")
