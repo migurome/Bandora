@@ -180,6 +180,12 @@ def playlists():
     return out[:1] + sorted(out[1:], key=lambda p: -p["tracks"])
 
 
+def top_tracks(artist_id, limit=10):
+    """Canciones más escuchadas con su preview de 30 s. Sin caché: las URLs de preview caducan."""
+    res = get_json(f"https://api.deezer.com/artist/{artist_id}/top?limit={limit}").get("data", [])
+    return [{"title": t["title"], "preview": t["preview"]} for t in res if t.get("preview")]
+
+
 def search(q):
     res = get_json("https://api.deezer.com/search/artist?limit=6&q=" + urllib.parse.quote(q))
     return [{"id": a["id"], "name": a["name"], "fans": a.get("nb_fan", 0), "picture": a.get("picture_small")}
@@ -218,6 +224,8 @@ class Handler(SimpleHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         qs = urllib.parse.parse_qs(u.query)
         try:
+            if m := re.fullmatch(r"/api/top/(\d+)", u.path):
+                return self.send_json(top_tracks(int(m.group(1))))
             if u.path == "/api/search":
                 return self.send_json(search(qs.get("q", [""])[0][:100]))
             if m := re.fullmatch(r"/api/artist/(\d+)", u.path):

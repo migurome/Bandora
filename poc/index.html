@@ -32,7 +32,7 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
 #foot button { padding: 4px 10px; font-size: 12px; vertical-align: middle; }
 #foot button:disabled { opacity: .35; cursor: default; }
-#home svg { width: 26px; height: 26px; }
+#info audio { width: 100%; height: 34px; flex: none; }
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
 #busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
 #busy.on { display: block; }
@@ -126,10 +126,9 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
   </svg>
 </div>
 <div id="foot">
-  <button id="home" class="icon" title="Weave" aria-label="Encuadrar todo el mapa"></button>
-  <button id="play" class="icon" aria-label="Reproducir o parar el preview" data-src=""></button>
+  <button id="expand" class="icon primary" aria-label="Desplegar relacionadas del artista de la ficha"></button>
+  <button id="play" class="icon" aria-label="Reproducir o parar"></button>
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
-  <button id="labels" class="icon" title="/label" aria-label="Mostrar u ocultar los géneros" aria-pressed="false"></button>
 </div>
 <div id="tip"></div>
 <svg id="svg"></svg>
@@ -289,6 +288,7 @@ function render() {
 
   sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.6).restart();
   renderLegend();
+  if (window.playerReady) playIcon();  // refresca el botón desplegar del pie
 }
 
 // Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más allá de 1.2×)
@@ -437,6 +437,7 @@ const ICON = {
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
   explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
   label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -445,7 +446,7 @@ const ICON = {
 let shownId = null;  // artista que muestra la ficha
 function showPanel(on) {
   $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on);
-  if (!on) { shownId = null; $('play').dataset.src = ''; playIcon?.(); }
+  if (!on) { shownId = null; playIcon?.(); }
 }
 document.body.classList.toggle('folded', localStorage.getItem('weave-folded') === '1');
 $('fold').onclick = () => {
@@ -463,34 +464,55 @@ async function select(n) {
     <h2>${esc(a.name)}</h2>
     ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
     <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
-    <div class="row"><button class="icon primary" id="more" aria-label="Explorar relacionadas" ${degree(n) >= MAX_LINKS ? 'disabled style="opacity:.4;cursor:default"' : ''}>${ICON.explore}</button>
-      <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Abrir en Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
-      <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Buscar en Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a>
-      <button class="icon" id="del" title="Quitar (Supr)" aria-label="Quitar del mapa">${ICON.trash}</button></div>`;
-  $('more').onclick = () => expand(n);
-  $('del').onclick = () => removeNode(n);
-  $('play').dataset.src = a.preview || '';  // el ▶ del pie reproduce el artista de la ficha
-  $('play').title = a.previewTitle || '';
+    <div id="slot"></div>
+    <div class="row"><button class="icon" id="pPlay" aria-label="Reproducir o parar"></button>
+      <button class="icon" id="pNext" aria-label="Siguiente canción">${ICON.next}</button>
+      <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
+      <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a></div>`;
+  $('slot').appendChild(player);  // el mismo reproductor viaja de ficha en ficha: la música no se corta
+  $('pPlay').onclick = togglePlay;
+  $('pNext').onclick = nextTrack;
   playIcon();
 }
 
 // ---------- Preview: un solo reproductor para toda la página ----------
 const player = new Audio();
+player.controls = true;  // la barra de progreso de siempre, dentro de la ficha
+const tracks = new Map();  // id de artista → promesa con sus canciones (las 10 más escuchadas)
+const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
+let queue = { id: null, list: [], i: 0 };  // lo que está sonando
 const sounding = () => !!player.src && !player.paused;
 function playIcon() {
-  const b = $('play');
-  b.innerHTML = sounding() ? ICON.stop : ICON.play;
-  b.setAttribute('aria-pressed', sounding());
-  b.disabled = !sounding() && !b.dataset.src;
+  const on = sounding(), idle = !on && shownId == null;
+  for (const id of ['play', 'pPlay']) {
+    const b = $(id); if (!b) continue;
+    b.innerHTML = on ? ICON.stop : ICON.play; b.setAttribute('aria-pressed', on); b.disabled = idle;
+  }
+  const e = $('expand'), n = byId.get(shownId);
+  e.disabled = !n || degree(n) >= MAX_LINKS || !!n.loading;
 }
+async function playFrom(id, i) {
+  const list = await working(tracksOf(id));
+  if (!list.length) { flashError(); return; }
+  queue = { id, list, i: (i + list.length) % list.length };
+  player.src = list[queue.i].preview; player.title = list[queue.i].title;
+  player.play().catch(() => flashError());
+}
+// Si algo suena, lo para; si no, reproduce el artista de la ficha
 function togglePlay() {
-  const src = $('play').dataset.src;
-  if (sounding()) { player.pause(); player.currentTime = 0; }
-  else if (src) { player.src = src; player.play().catch(() => flashError()); }
-  playIcon();
+  if (sounding()) { player.pause(); player.currentTime = 0; playIcon(); return; }
+  if (shownId != null) playFrom(shownId, queue.id === shownId ? queue.i : 0);
+}
+// Siguiente canción del artista de la ficha (o del que suena, si la ficha está cerrada)
+function nextTrack() {
+  const id = shownId ?? queue.id;
+  if (id == null) return;
+  playFrom(id, queue.id === id ? queue.i + 1 : 0);
 }
 $('play').onclick = togglePlay;
-['play', 'pause', 'ended'].forEach(ev => player.addEventListener(ev, playIcon));
+['play', 'pause', 'ended', 'emptied'].forEach(ev => player.addEventListener(ev, playIcon));
+player.addEventListener('ended', () => nextTrack());  // al acabar una, la siguiente
+window.playerReady = true;
 playIcon();
 
 async function addOrigin(r) {
@@ -624,18 +646,15 @@ document.addEventListener('keydown', e => {
 
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
 $('clear').innerHTML = ICON.clear;
-$('home').innerHTML = $('busy').querySelector('svg').outerHTML;  // el logo de Weave (estático)
-$('home').querySelectorAll('.thread, .n').forEach(el => el.classList.remove('thread', 'n'));
-$('home').onclick = () => { autoFit = false; fitIfNeeded(true); sfx.select(); };
+$('expand').innerHTML = ICON.explore;
+$('expand').onclick = () => { const n = byId.get(shownId); if (n) expand(n); };
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 function toggleLabels() {
   showLabels = !showLabels; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
-  $('labels').setAttribute('aria-pressed', showLabels); sfx.select();
+  sfx.select();
   render();
 }
-$('labels').innerHTML = ICON.label;
-$('labels').setAttribute('aria-pressed', showLabels);
-$('labels').onclick = toggleLabels;
+
 
 // ---------- Indicador de trabajo ----------
 let listRun = 0;  // se incrementa para cancelar una carga en curso
