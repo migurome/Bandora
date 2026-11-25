@@ -69,7 +69,6 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
 .ui select { flex: none; max-width: 220px; padding: 0 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
              border-radius: 999px; font: inherit; cursor: pointer; }
 .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin: 4px 4px 0 0; font-size: 12px; }
-audio { width: 100%; height: 34px; flex: none; }
 #legend { position: fixed; left: 16px; bottom: 16px; z-index: 2; font-size: 12px; max-width: 320px; }
 #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .node { cursor: pointer; }
@@ -126,7 +125,7 @@ audio { width: 100%; height: 34px; flex: none; }
 </div>
 <div id="foot">
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
-  <button id="labels" class="icon" title="/label" aria-label="Mostrar u ocultar los nombres" aria-pressed="false"></button>
+  <button id="labels" class="icon" title="/label" aria-label="Mostrar u ocultar los géneros" aria-pressed="false"></button>
 </div>
 <div id="tip"></div>
 <svg id="svg"></svg>
@@ -188,7 +187,7 @@ const sim = d3.forceSimulation(nodes)
   .force('link', d3.forceLink(links).id(d => d.id)
     .distance(l => radius(l.source) + radius(l.target) + 70).strength(0.6))
   .force('charge', d3.forceManyBody().strength(d => -300 - 8 * radius(d)).distanceMax(700))
-  .force('collide', d3.forceCollide(d => radius(d) + (photoMode && showLabels ? 26 : 14)).strength(1))  // hueco para el nombre si se ve
+  .force('collide', d3.forceCollide(d => radius(d) + (photoMode ? 26 : 14)).strength(1))  // hueco para el nombre bajo la foto
   .force('gx', d3.forceX(d => anchor(d).x).strength(d => d.genre ? 0.012 : 0))
   .force('gy', d3.forceY(d => anchor(d).y).strength(d => d.genre ? 0.012 : 0))
   .force('cx', d3.forceX(() => innerWidth / 2).strength(0.008))  // las bandas sueltas no se alejan sin fin
@@ -206,8 +205,8 @@ function anchor(d) {
   const R = n === 1 ? 0 : 140 + 30 * n;
   return { x: innerWidth / 2 + R * Math.cos(2 * Math.PI * i / n), y: innerHeight / 2 + R * Math.sin(2 * Math.PI * i / n) };
 }
-let showLabels = localStorage.getItem('weave-labels') === '1';  // nombres bajo los círculos (botón o /label)
-const labelDisplay = () => (k < 0.6 || !showLabels) ? 'none' : null;
+let showLabels = localStorage.getItem('weave-labels') === '1';  // géneros (leyenda): botón de etiqueta o /label
+const labelDisplay = () => k < 0.6 ? 'none' : null;  // los nombres se ven siempre (salvo muy alejado)
 const photoMode = true;  // los círculos muestran la foto del artista; el color del género va en el aro
 function radius(d) {
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2);
@@ -432,6 +431,8 @@ const ICON = {
   // Iconos simplificados: barras de ecualizador (Deezer) y ondas (Spotify)
   deezer: '<svg viewBox="0 0 24 24" fill="#a238ff"><rect x="2" y="15" width="4" height="5" rx="1"/><rect x="7" y="11" width="4" height="9" rx="1"/><rect x="12" y="7" width="4" height="13" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>',
   spotify: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
   label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -458,14 +459,35 @@ async function select(n) {
     <h2>${esc(a.name)}</h2>
     ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
     <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
-    ${a.preview ? `<audio controls src="${esc(a.preview)}" title="${esc(a.previewTitle)}"></audio>` : ''}
     <div class="row"><button class="icon primary" id="more" aria-label="Explorar relacionadas" ${degree(n) >= MAX_LINKS ? 'disabled style="opacity:.4;cursor:default"' : ''}>${ICON.explore}</button>
+      <button class="icon" id="play" data-src="${esc(a.preview || '')}" title="${esc(a.previewTitle || '')}" aria-label="Reproducir o parar el preview" ${a.preview ? '' : 'disabled style="opacity:.4;cursor:default"'}></button>
       <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Abrir en Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
       <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Buscar en Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a>
       <button class="icon" id="del" title="Quitar (Supr)" aria-label="Quitar del mapa">${ICON.trash}</button></div>`;
   $('more').onclick = () => expand(n);
   $('del').onclick = () => removeNode(n);
+  $('play').onclick = () => togglePlay(a.preview);
+  playIcon();
 }
+
+// ---------- Preview: un solo reproductor para toda la página ----------
+const player = new Audio();
+const playing = src => src && player.src === src && !player.paused;
+function playIcon() {
+  const b = $('play');
+  if (!b) return;
+  const on = playing(b.dataset.src || '');
+  b.innerHTML = on ? ICON.stop : ICON.play;
+  b.setAttribute('aria-pressed', on);
+}
+function togglePlay(src) {
+  if (!src) return;
+  $('play').dataset.src = src;
+  if (playing(src)) { player.pause(); player.currentTime = 0; }
+  else { player.src = src; player.play().catch(() => flashError()); }
+  playIcon();
+}
+['play', 'pause', 'ended'].forEach(ev => player.addEventListener(ev, playIcon));
 
 async function addOrigin(r) {
   const full = await working(getArtist(r.id).catch(() => null));
@@ -602,7 +624,6 @@ $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 function toggleLabels() {
   showLabels = !showLabels; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
   $('labels').setAttribute('aria-pressed', showLabels); sfx.select();
-  sim.force('collide').radius(d => radius(d) + (photoMode && showLabels ? 26 : 14));
   render();
 }
 $('labels').innerHTML = ICON.label;
