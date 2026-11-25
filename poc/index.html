@@ -31,6 +31,8 @@ button.primary { background: var(--accent); color: #111; font-weight: 600; }
 #status { color: var(--text); font-size: 13px; min-height: 1.4em; margin-bottom: 4px; }
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; }
 #foot button { padding: 4px 10px; font-size: 12px; vertical-align: middle; }
+#foot button:disabled { opacity: .35; cursor: default; }
+#home svg { width: 26px; height: 26px; }
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
 #busy { position: fixed; z-index: 5; pointer-events: none; display: none; }
 #busy.on { display: block; }
@@ -124,6 +126,8 @@ body.panel:not(.folded) #busy.bar { right: 350px; }
   </svg>
 </div>
 <div id="foot">
+  <button id="home" class="icon" title="Weave" aria-label="Encuadrar todo el mapa"></button>
+  <button id="play" class="icon" aria-label="Reproducir o parar el preview" data-src=""></button>
   <button id="clear" class="icon" title="/clear" aria-label="Limpiar el mapa"></button>
   <button id="labels" class="icon" title="/label" aria-label="Mostrar u ocultar los géneros" aria-pressed="false"></button>
 </div>
@@ -288,7 +292,7 @@ function render() {
 }
 
 // Si alguna banda queda fuera de la vista, encuadra todo (sin acercar más allá de 1.2×)
-function fitIfNeeded() {
+function fitIfNeeded(force = false) {
   if (!nodes.length) return;
   const t = d3.zoomTransform(svg.node());
   const left = 20;
@@ -296,7 +300,7 @@ function fitIfNeeded() {
   const y0 = d3.min(nodes, d => d.y - radius(d)), y1 = d3.max(nodes, d => d.y + radius(d));
   const out = nodes.some(d => { const [sx, sy] = t.apply([d.x, d.y]), r = radius(d) * t.k;  // cuenta el borde del círculo, no solo el centro
     return sx - r < left || sx + r > innerWidth - 330 || sy - r < 70 || sy + r > innerHeight - 90; });
-  if (!out) return;
+  if (!out && !force) return;
   const w = innerWidth - 340 - left, h = innerHeight - 180;  // deja libres la barra, la pila, la ficha y el pie
   // nunca por debajo de 0.6: el encuadre automático no debe ocultar los nombres
   const s = Math.max(0.6, Math.min(1.2, 0.9 * Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80))));
@@ -441,7 +445,7 @@ const ICON = {
 let shownId = null;  // artista que muestra la ficha
 function showPanel(on) {
   $('info').style.display = on ? 'flex' : 'none'; document.body.classList.toggle('panel', on);
-  if (!on) shownId = null;
+  if (!on) { shownId = null; $('play').dataset.src = ''; playIcon?.(); }
 }
 document.body.classList.toggle('folded', localStorage.getItem('weave-folded') === '1');
 $('fold').onclick = () => {
@@ -460,34 +464,34 @@ async function select(n) {
     ${a.country ? `<div class="muted">${esc(a.country)}</div>` : ''}
     <div>${a.genres.map(g => `<span class="tag" style="border-color:${colorOf(g)}">${esc(g)}</span>`).join('')}</div>
     <div class="row"><button class="icon primary" id="more" aria-label="Explorar relacionadas" ${degree(n) >= MAX_LINKS ? 'disabled style="opacity:.4;cursor:default"' : ''}>${ICON.explore}</button>
-      <button class="icon" id="play" data-src="${esc(a.preview || '')}" title="${esc(a.previewTitle || '')}" aria-label="Reproducir o parar el preview" ${a.preview ? '' : 'disabled style="opacity:.4;cursor:default"'}></button>
       <a href="${esc(a.link)}" target="_blank" rel="noopener"><button class="icon" title="Abrir en Deezer" aria-label="Abrir en Deezer">${ICON.deezer}</button></a>
       <a href="https://open.spotify.com/search/${encodeURIComponent(a.name)}" target="_blank" rel="noopener"><button class="icon" title="Buscar en Spotify" aria-label="Buscar en Spotify">${ICON.spotify}</button></a>
       <button class="icon" id="del" title="Quitar (Supr)" aria-label="Quitar del mapa">${ICON.trash}</button></div>`;
   $('more').onclick = () => expand(n);
   $('del').onclick = () => removeNode(n);
-  $('play').onclick = () => togglePlay(a.preview);
+  $('play').dataset.src = a.preview || '';  // el ▶ del pie reproduce el artista de la ficha
+  $('play').title = a.previewTitle || '';
   playIcon();
 }
 
 // ---------- Preview: un solo reproductor para toda la página ----------
 const player = new Audio();
-const playing = src => src && player.src === src && !player.paused;
+const sounding = () => !!player.src && !player.paused;
 function playIcon() {
   const b = $('play');
-  if (!b) return;
-  const on = playing(b.dataset.src || '');
-  b.innerHTML = on ? ICON.stop : ICON.play;
-  b.setAttribute('aria-pressed', on);
+  b.innerHTML = sounding() ? ICON.stop : ICON.play;
+  b.setAttribute('aria-pressed', sounding());
+  b.disabled = !sounding() && !b.dataset.src;
 }
-function togglePlay(src) {
-  if (!src) return;
-  $('play').dataset.src = src;
-  if (playing(src)) { player.pause(); player.currentTime = 0; }
-  else { player.src = src; player.play().catch(() => flashError()); }
+function togglePlay() {
+  const src = $('play').dataset.src;
+  if (sounding()) { player.pause(); player.currentTime = 0; }
+  else if (src) { player.src = src; player.play().catch(() => flashError()); }
   playIcon();
 }
+$('play').onclick = togglePlay;
 ['play', 'pause', 'ended'].forEach(ev => player.addEventListener(ev, playIcon));
+playIcon();
 
 async function addOrigin(r) {
   const full = await working(getArtist(r.id).catch(() => null));
@@ -620,6 +624,9 @@ document.addEventListener('keydown', e => {
 
 function clearAll() { nodes.length = links.length = 0; byId.clear(); byName.clear(); showPanel(false); render(); status(''); }
 $('clear').innerHTML = ICON.clear;
+$('home').innerHTML = $('busy').querySelector('svg').outerHTML;  // el logo de Weave (estático)
+$('home').querySelectorAll('.thread, .n').forEach(el => el.classList.remove('thread', 'n'));
+$('home').onclick = () => { autoFit = false; fitIfNeeded(true); sfx.select(); };
 $('clear').onclick = () => { listRun++; clearAll(); sfx.remove(); };
 function toggleLabels() {
   showLabels = !showLabels; localStorage.setItem('weave-labels', showLabels ? '1' : '0');
