@@ -313,6 +313,7 @@ function tick() {
 // Leyenda = filtro: pulsar un género lo oculta o lo muestra
 const hidden = new Set();
 function renderLegend() {
+  $('legend').style.display = showLabels ? '' : 'none';  // la leyenda (filtro de género) es una etiqueta más
   const present = new Set(nodes.map(d => d.genre));
   $('legend').innerHTML = [...genreColor].filter(([g]) => present.has(g)).map(([g, c]) =>
     `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${c}"></i>${esc(g)}</button>`).join('');
