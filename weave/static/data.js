@@ -6,9 +6,9 @@ const Data = (() => {
   const KINDS = ['similar', 'influence', 'member'];
   const nrm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
   const byId = new Map(), list = [], byDz = new Map(), live = new Map();  // live: artistas de Deezer vistos en vivo
-  let families = [], related = {}, adj = null, rockFirst = null;
+  let families = [], related = {}, adj = null, rockFirst = null, version = '';
   const ready = fetch('data/weave.json').then(r => { if (!r.ok) throw new Error('datos ' + r.status); return r.json(); }).then(d => {
-    families = d.families; related = d.related; rockFirst = new RegExp(d.rockFirst);
+    families = d.families; related = d.related; version = d.version; rockFirst = new RegExp(d.rockFirst);
     families.forEach(f => { f.rx = f.pattern ? new RegExp(f.pattern) : null; });
     for (const [id, name, fans, pic, dz, fam, genre] of d.artists) {
       const a = { id, name, fans, pic, dz, fam, genre, k: nrm(name) };
@@ -152,6 +152,7 @@ const Data = (() => {
     const d = await deezer(`/artist/${dz}/top?limit=10`);
     return (d.data || []).filter(t => t.preview).map(t => ({ title: t.title, preview: t.preview }));
   }
-  const api = { ready, search, artist, more, path, tracks, photo, extra, deezer, norm: nrm, offline: false };  // offline: simula sin red
+  const info = () => ready.then(() => ({ version, artists: list.length }));  // para /version
+  const api = { ready, info, search, artist, more, path, tracks, photo, extra, deezer, norm: nrm, offline: false };  // offline: simula sin red
   return api;
 })();

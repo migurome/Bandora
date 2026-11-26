@@ -108,7 +108,7 @@ button:hover { background: #3a3f49; }
 .opt.on .bg { stroke: var(--accent); }
 .opt.on .ico { color: var(--accent); }
 /* corona: favorita; sobrevive a ✕ (el segundo ✕ borra todo) */
-.node .pinmark { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }
+.node .pinmark { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .opt.off { opacity: .35; cursor: default; }
 /* línea que se arrastra desde el conector hasta otro círculo */
 .wire { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; pointer-events: none; }
@@ -133,6 +133,7 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
+const VERSION = '3.6';  // súbela al publicar cambios (Fase 3 → 3.x)
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
@@ -651,7 +652,7 @@ function render() {
     .attr('display', d => d.loading ? null : 'none');
   all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
   all.select('.pinmark').attr('display', d => d.pinned ? null : 'none')
-    .attr('transform', d => `translate(0,${-radius(d) + 3}) scale(${Math.max(0.8, radius(d) / 40)})`);  // encima del círculo
+    .attr('transform', d => `translate(0,${-radius(d) * 0.9}) scale(${radius(d) / 28.7})`);  // asentada en lo alto: las puntas de la base tocan el borde
   all.select('.gloss').attr('r', radius).attr('display', d => d.picture ? 'none' : null);
   all.select('text.inner').each(function (d) {  // sin foto: el nombre dentro, ajustado al tamaño de la bola
     const I = d.picture ? { lines: [], size: 0 } : innerLines(d);
@@ -1074,7 +1075,8 @@ const COMMANDS = [
   { usage: '/undo', fill: '/undo', re: /^\/undo$/i, run: () => undo() },
   { usage: '/save <b>nombre</b>', fill: '/save ', re: /^\/save\s+(.+)$/i, run: m => saveMap(m[1].trim()) },
   { usage: '/load <b>nombre</b>', fill: '/load ', re: /^\/load\s+(.+)$/i, run: m => loadMap(m[1].trim()) },
-  { usage: '/debug <b>pong</b>|<b>bobble</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(\w+))?$/i,
+  { usage: '/version', fill: '/version', re: /^\/version$/i, run: () => showVersion() },
+  { hidden: true, usage: '/debug', fill: '/debug ', re: /^\/debug(?:\s+(\w+))?$/i,
     run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
       const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'off'].find(x => x.startsWith(w));
       if (!mode) return flashError();
@@ -1090,11 +1092,16 @@ async function debugGame(mode) {
 }
 function showCommands(q) {
   const word = q.split(/\s+/)[0].toLowerCase();
-  const list = COMMANDS.filter(c => c.fill.trim().startsWith(word));
+  const list = COMMANDS.filter(c => !c.hidden && c.fill.trim().startsWith(word));  // /debug funciona, pero no se anuncia
   $('results').innerHTML = list.map((c, i) => `<li class="cmd" tabindex="0" data-i="${i}">${c.usage}</li>`).join('');
   $('results').querySelectorAll('li').forEach(li => li.onclick = () => {
     $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
   });
+}
+async function showVersion() {
+  const d = await Data.info().catch(() => null), day = d && new Date(d.version).toLocaleDateString('es');
+  $('results').innerHTML = [`Weave bands ${VERSION}`, d ? `datos del ${day} · ${d.artists.toLocaleString('es')} artistas` : 'sin datos',
+    navigator.onLine ? 'con conexión' : 'sin conexión'].map(t => `<li class="cmd">${esc(t)}</li>`).join('');
 }
 function showHelp() {  // todos los comandos (tocar uno lo escribe en la barra) y la página que lo explica todo
   showCommands('/');

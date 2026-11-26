@@ -117,12 +117,20 @@ setTimeout(async () => {
     { const items = [...$('results').querySelectorAll('li')];
       ok('/help lista los comandos y enlaza la ayuda', items.some(li => li.textContent.startsWith('/undo')) && !!$('results').querySelector('a[href="ayuda.html"]')); }
     $('results').innerHTML = '';
+    typeIn('/'); await sleep(200);
+    ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
+    cmd('/version'); await sleep(400);
+    ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /42\.?\d{3} artistas/.test($('results').textContent));
+    $('results').innerHTML = '';
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length >= 3 && links.every(l => l.path));  // la longitud depende de los datos
     // corona: el primer ✕ deja solo las favoritas; el segundo borra todo
     const fav = nodes.find(n => n.name === 'Marea'); closeAll(); clk(nodeG('Marea')); await sleep(300); clk(opt('pin')); await sleep(200);
     ok('corona marca', fav.pinned && getComputedStyle(nodeG('Marea').querySelector('.pinmark')).display !== 'none');
+    { const g = nodeG('Marea'), c = g.querySelector('.dot').getBoundingClientRect(), k = g.querySelector('.pinmark').getBoundingClientRect(),
+        r = radius(d3.select(g).datum()) * d3.zoomTransform($('svg')).k, top = c.top + c.height / 2 - r;  // el radio de la bola, no el del dibujo (su transición se congela aquí)
+      ok('corona a medida del círculo ' + JSON.stringify([r, k.width, k.bottom - top].map(Math.round)), k.width > r * 0.75 && k.width < r * 1.05 && k.bottom > top + r * 0.05 && k.bottom < top + r * 0.3); }
     $('clear').click(); await sleep(300);
     ok('✕ deja las favoritas', nodes.length === 1 && nodes[0] === fav);
     $('clear').click(); await sleep(300);
