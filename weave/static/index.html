@@ -408,15 +408,16 @@ function clickNode(d) {
 function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); }
 
 const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
-const OPTS = [  // semicírculo por debajo, de izquierda a derecha (ángulos SVG: positivo = abajo)
-  { key: 'expand', ang: 160, primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
+const OPT_GAP = 44;  // px entre centros de botón (cada botón mide 34)
+const OPTS = [  // arco por debajo, de izquierda a derecha
+  { key: 'expand', primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
-  { key: 'pin', ang: 134, label: 'Corona: favorita', icon: d => d.pinned ? ICON.crownOn : ICON.crown, on: d => !!d.pinned,
+  { key: 'pin', label: 'Corona: favorita', icon: d => d.pinned ? ICON.crownOn : ICON.crown, on: d => !!d.pinned,
     run: d => { d.pinned = !d.pinned; sfx.select(); render(); } },
-  { key: 'play', ang: 108, label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
-  { key: 'next', ang: 82, label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
-  { key: 'remove', ang: 56, label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
-  { key: 'spotify', ang: 30, label: 'Spotify', icon: () => ICON.spotify,
+  { key: 'play', label: 'Reproducir o pausar', icon: d => isPlaying(d) ? ICON.pause : ICON.play, run: d => playToggle(d) },
+  { key: 'next', label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
+  { key: 'remove', label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
+  { key: 'spotify', label: 'Spotify', icon: () => ICON.spotify,
     run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
 ];
 function renderMenus(all) {
@@ -433,7 +434,10 @@ function renderMenus(all) {
     .classed('off', o => !!(o.off && o.off(o.d)))
     .classed('on', o => !!(o.on && o.on(o.d)))
     .attr('transform', o => {
-      const R = radius(o.d) + 24, a = o.ang * Math.PI / 180;
+      // separación fija en píxeles por el arco (no en grados): en círculos pequeños el arco se abre o se aleja
+      const i = OPTS.findIndex(x => x.key === o.key), last = OPTS.length - 1;
+      const R = Math.max(radius(o.d) + 24, OPT_GAP * last / Math.PI);  // como mucho medio círculo
+      const a = Math.PI / 2 + (last / 2 - i) * OPT_GAP / R;  // centrado abajo, de izquierda a derecha
       return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
     })
     .each(function (o) {
