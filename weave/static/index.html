@@ -187,7 +187,17 @@ const game = (() => {
     i.src = 'data:image/svg+xml,' + encodeURIComponent(svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replaceAll('currentColor', color));
     return i;
   };
-  const icons = MENU.map(svg => ({ off: img(svg, TEXT), on: img(svg, DARK) }));
+  const icons = MENU.map(svg => ({ off: img(svg, TEXT), on: img(svg, DARK), gold: img(svg, Y) }));
+  // fichas de las burbujas: desplegar amarilla, corona con oro, Spotify en su verde; el resto negras
+  const CHIP = [{ fill: Y, edge: Y, ic: 'on' }, { fill: DARK, edge: Y, ic: 'gold' }, null, null, null, { fill: '#1ed760', edge: '#1ed760', ic: 'on' }];
+  function chip(x, y, r, t) {
+    const c = CHIP[t];
+    if (!c) return disc(x, y, r, false, icons[t]);
+    g.fillStyle = c.fill; g.strokeStyle = c.edge; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.stroke();
+    const ic = icons[t][c.ic];
+    if (ic.complete) g.drawImage(ic, x - r * 0.6, y - r * 0.6, r * 1.2, r * 1.2);
+  }
   function disc(x, y, r, on, icon) {  // un círculo de la app: negro con borde gris, o amarillo encendido; con su icono
     g.fillStyle = on ? Y : DARK; g.strokeStyle = on ? Y : EDGE; g.lineWidth = 2;
     g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.stroke();
@@ -322,7 +332,7 @@ const game = (() => {
         if (touching) land();
       },
       draw() {
-        grid.forEach((row, a) => row.forEach((t, b) => { if (t != null) disc(cx(a, b), cy(a), r - 1, false, icons[t]); }));
+        grid.forEach((row, a) => row.forEach((t, b) => { if (t != null) chip(cx(a, b), cy(a), r - 1, t); }));
         if (flash) { flash.forEach(([x, y]) => disc(x, y, r - 1, true)); flash = null; }  // destello de las que explotan
         const [gx, gy] = gun();
         if (aim && !flying) {  // línea de puntos hacia donde apuntas
@@ -330,10 +340,10 @@ const game = (() => {
           for (let i = 1; i < 14; i++) { g.globalAlpha = 1 - i / 14; g.beginPath(); g.arc(gx + aim[0] * i * 18, gy + aim[1] * i * 18, 2.5, 0, 7); g.fill(); }
           g.globalAlpha = 1;
         }
-        if (flying) disc(flying.x, flying.y, r - 1, false, icons[shot]);
-        else disc(gx, gy, r - 1, false, icons[shot]);
+        if (flying) chip(flying.x, flying.y, r - 1, shot);
+        else chip(gx, gy, r - 1, shot);
         g.strokeStyle = Y; g.lineWidth = 3; g.beginPath(); g.arc(gx, gy, r + 3, 0, 7); g.stroke();  // el lanzador
-        disc(gx + 3 * r, gy + r * 0.4, r * 0.6, false, icons[next]);  // la siguiente
+        chip(gx + 3 * r, gy + r * 0.4, r * 0.6, next);  // la siguiente
       },
       down(e) { this.move(e); },
       move(e) {
