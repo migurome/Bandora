@@ -39,18 +39,16 @@ class ExportTest(unittest.TestCase):
 
 
 
-class ExportLimitTest(unittest.TestCase):
-    def test_related_capped(self):
+class ExportReachTest(unittest.TestCase):
+    def test_all_related_and_no_loose_artists(self):
         s = Store(connect(":memory:"))
         a = s.upsert_deezer(1, "A")
         s.set_related(a, [s.upsert_deezer(100 + i, f"B{i}") for i in range(40)], "deezer")
-        self.assertEqual(len(build(s)["related"][str(a)]), 25)
+        s.upsert_deezer(999, "Suelto")  # sin ninguna relación: no se puede alcanzar desplegando
+        out = build(s)
+        self.assertEqual(len(out["related"][str(a)]), 40)
+        self.assertEqual(len(out["artists"]), 41)
 
-    def test_unreachable_stubs_are_left_out(self):
-        s = Store(connect(":memory:"))
-        a = s.upsert_deezer(1, "A")
-        s.set_related(a, [s.upsert_deezer(100 + i, f"B{i}") for i in range(40)], "deezer")
-        ids = {row[0] for row in build(s)["artists"]}
-        self.assertEqual(len(ids), 26)  # A y sus 25 primeras; las de más allá no se pueden alcanzar desplegando
+
 if __name__ == "__main__":
     unittest.main()

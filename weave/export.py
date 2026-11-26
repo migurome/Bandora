@@ -5,7 +5,7 @@ Formato:
   families    [{name, color, pattern}] y rockFirst: las reglas de weave/families.json, para los artistas en vivo
   artists     [[id, nombre, fans, foto, deezerId, índice de familia, género], ...]
               foto: hash de Deezer (32 hex) si es una foto de artista de Deezer; si no, la URL; o ""
-  related     {"id": [otroId | [otroId, motivo], ...]} las 25 primeras, en el orden en que se despliegan;
+  related     {"id": [otroId | [otroId, motivo], ...]} todas, en el orden en que se despliegan;
               un número solo es «parecido»; motivo 1 influencia, 2 miembros
 """
 import json
@@ -18,7 +18,6 @@ from .families import _DATA as FAMILIES_JSON, family_of_list
 from .store import KINDS, SOURCE_ORDER, Store, _dedupe
 
 OUT = Path(__file__).resolve().parent / "static" / "data" / "weave.json"
-RELATED = 25  # al desplegar se usan 5 cada vez: con 25 sobra y el archivo pesa la mitad
 PIC = re.compile(r"/images/artist/([0-9a-f]{32})/")
 
 
@@ -33,9 +32,9 @@ def build(store: Store) -> dict:
         deezer.setdefault(aid, int(ext))
     related = {}
     for (aid,) in con.execute("SELECT DISTINCT a FROM relation").fetchall():
-        rel = store.artist(aid)["related"][:RELATED]
+        rel = store.artist(aid)["related"]
         related[str(aid)] = [[r["id"], k] if (k := KINDS.index(r["kind"])) else r["id"] for r in rel]
-    # solo los que se pueden alcanzar desplegando: con relacionadas o dentro de alguna lista (el resto, en vivo)
+    # solo los que se pueden alcanzar desplegando: con relacionadas o dentro de alguna lista
     keep = {int(a) for a in related} | {x if isinstance(x, int) else x[0] for rel in related.values() for x in rel}
     artists = []
     for aid, name, fans, picture in con.execute("SELECT id, name, fans, picture FROM artist ORDER BY id"):
