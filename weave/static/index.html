@@ -399,12 +399,12 @@ const game = (() => {
     paddle: () => pong.paddle(), state: () => pong.state(), bubbles: () => bobble.state(),
   };
 })();
-// Fondo del arranque: puntos de los colores de las familias que flotan y se unen al acercarse (una red que se teje
+// Fondo del arranque: puntos (amarillo y gris de la app) que flotan y se unen en amarillo al acercarse (una red que se teje
 // sola). Solo con el mapa vacío y la barra sin texto; al empezar a buscar se desvanece y se para (no gasta batería).
 const ambient = (() => {
   const cv = document.createElement('canvas'); cv.id = 'ambient'; document.body.prepend(cv);
   const g = cv.getContext('2d'), LINK = 130;
-  const COLORS = ['#a3c9f5', '#c9bbf6', '#b5e3a1', '#f5a3a3', '#9de3d0', '#f6e3a1', '#f5a9c8', '#f3c6a5'];
+  const COLORS = ['#f2c94c', '#9aa0aa', '#9aa0aa'];  // colores de la app: amarillo y gris
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let dots = [], frame = 0, shown = false, last = 0;
   function size() {
@@ -422,7 +422,7 @@ const ambient = (() => {
     for (let i = 0; i < dots.length; i++) for (let j = i + 1; j < dots.length; j++) {
       const a = dots[i], b = dots[j], d = Math.hypot(a.x - b.x, a.y - b.y);
       if (d > LINK) continue;
-      g.globalAlpha = 0.28 * (1 - d / LINK); g.strokeStyle = a.c;
+      g.globalAlpha = 0.5 * (1 - d / LINK); g.strokeStyle = '#f2c94c';  // conexiones amarillas
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
     for (const p of dots) { g.globalAlpha = 0.5; g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill(); }
