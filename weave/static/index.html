@@ -912,8 +912,12 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
-  { usage: '/debug <b>pong</b>|<b>bobble</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(pong|bobble|bubbles|off))?$/i,
-    run: m => debugGame((m[1] || 'pong').toLowerCase().replace('bubbles', 'bobble')) },
+  { usage: '/debug <b>pong</b>|<b>bobble</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(\w+))?$/i,
+    run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
+      const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'off'].find(x => x.startsWith(w));
+      if (!mode) return flashError();
+      debugGame(mode === 'bubbles' ? 'bobble' : mode);
+    } },
 ];
 // /debug pong|bobble: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
 let debugEnd = null;
@@ -975,8 +979,10 @@ document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionad
   const sel = byId.get(selId);
   if (sel) removeNode(sel);
 });
-// ?origen=Marea,Michael Jackson -> arranca con esos orígenes (enlace compartible)
+// ?debug=pong|bobble -> arranca con ese juego (para probarlo en el móvil); ?origen=Marea,Michael Jackson -> esos orígenes
 (async () => {
+  const dbg = new URLSearchParams(location.search).get('debug');
+  if (dbg) runCommand('/debug ' + dbg);
   const names = (new URLSearchParams(location.search).get('origen') || '').split(',').map(s => s.trim()).filter(Boolean);
   for (const name of names) {
     const r = await findArtist(name);

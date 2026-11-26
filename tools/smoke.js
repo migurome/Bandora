@@ -44,7 +44,7 @@ setTimeout(async () => {
     const st = game.state(), c = st.circles[3];  // un botón del menú: se lanza la bola contra él
     Object.assign(st.ball, { x: c.x, y: c.y + c.r + 40, vx: 0, vy: -5 }); await sleep(800);
     ok('pong: la bola enciende el botón que golpea', st.circles.length === 7 && game.state().lit[3]);
-    cmd('/debug bobble'); await sleep(600);
+    cmd('/debug bobbl'); await sleep(600);  // basta el principio
     const b0 = game.bubbles();
     const shoot = (x, y) => ['pointerdown', 'pointermove', 'pointerup'].forEach(t => $('game').dispatchEvent(new PointerEvent(t, { bubbles: true, clientX: x, clientY: y })));
     shoot(innerWidth / 2 + 30, 200); await sleep(1500);
