@@ -35,13 +35,13 @@ setTimeout(async () => {
     ok('spotify abre la app en android', spotifyUrl('Marea', 'Mozilla/5.0 (Linux; Android 12)') .startsWith('intent:search:Marea#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com%2Fsearch%2FMarea')
        && spotifyUrl('Marea', 'Mozilla/5.0 (Windows NT 10.0)') === 'https://open.spotify.com/search/Marea');
     const wait = working(sleep(3000)); await sleep(1900);
-    const barBusy = document.querySelector('.ui .bar').classList.contains('busy'), smallLogo = $('busy').classList.contains('on');
-    const playing = game.playing(), d0 = game.dir();
-    $('game').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: innerWidth - 10, clientY: 300 }));
-    ok('espera: barra animada sin logo pequeño', barBusy && !smallLogo);
-    ok('espera: tron (tocar a la derecha gira)', playing && game.dir() === (d0 + 1) % 4);
+    const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
+    $('game').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 300 }));
+    const [tx, ty] = game.target();
+    ok('espera: «searching» en la barra y nada más', bar.classList.contains('busy') && word && word.textContent === 'searching' && !document.getElementById('busy'));
+    ok('espera: la serpiente sigue el dedo', game.playing() && tx === 120 && ty === 300);
     await wait; await sleep(800);
-    ok('fin de espera: barra quieta y sin juego', !document.querySelector('.ui .bar').classList.contains('busy') && !game.playing());
+    ok('fin de espera: sin «searching» ni serpiente', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
     ok('play', !player.paused && document.querySelector('.node.playing'));
