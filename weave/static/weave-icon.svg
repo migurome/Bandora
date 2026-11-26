@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
   <title id="t">Weave bands</title>
-  <!-- el gesto de la app: un artista se despliega en sus relacionados (colores de las familias) -->
+  <!-- el gesto de la app: un artista se despliega en sus relacionados (amarillo y negro) -->
   <rect width="128" height="128" rx="28" fill="#0f1115"/>
-  <g stroke="#9aa0aa" stroke-width="6" stroke-linecap="round">
+  <g stroke="#f2c94c" stroke-width="6" stroke-linecap="round">
     <path d="M47 64h37M45 56l41-25M45 72l41 25"/>
   </g>
   <circle cx="34" cy="64" r="17" fill="#f2c94c"/>
-  <circle cx="96" cy="26" r="13" fill="#a3c9f5"/>
-  <circle cx="96" cy="64" r="13" fill="#c9bbf6"/>
-  <circle cx="96" cy="102" r="13" fill="#b5e3a1"/>
+  <circle cx="96" cy="26" r="13" fill="#f2c94c"/>
+  <circle cx="96" cy="64" r="13" fill="#f2c94c"/>
+  <circle cx="96" cy="102" r="13" fill="#f2c94c"/>
 </svg>
