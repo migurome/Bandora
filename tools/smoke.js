@@ -79,6 +79,7 @@ setTimeout(async () => {
     // arrastrar desde el botón de desplegar de Marea hasta Michael Jackson teje el camino dentro del mapa
     await addOrigin(await findArtist('Michael Jackson')); await sleep(800);
     const before = nodes.length, marea = nodes.find(n => n.name === 'Marea'), mj = nodes.find(n => n.name === 'Michael Jackson');
+    wantFit = autoFit = false; sim.stop(); d3.select('#svg').interrupt();  // mapa quieto: las coordenadas no se mueven
     closeAll(); clk(nodeG('Marea')); await sleep(400);
     const at = el => { const r = el.getBoundingClientRect(); return { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, view: window }; };
     const from = at(opt('expand').querySelector('.bg')), to = at(nodeG('Michael Jackson').querySelector('.dot'));
@@ -90,7 +91,7 @@ setTimeout(async () => {
     tev('touchstart', from); tev('touchmove', { clientX: from.clientX + 20, clientY: from.clientY }); tev('touchmove', to);
     const wire = gWire.select('line'), wireOk = !wire.empty() && isFinite(+wire.attr('x2'));
     tev('touchend', to); connectPath = realConnect;
-    ok('conectar con el dedo', wireOk && hit && hit[0] === 'Marea' && hit[1] === 'Michael Jackson');
+    ok('conectar con el dedo' + (hit ? '' : ' ' + JSON.stringify({ wireOk, names: nodes.map(n => n.name), mj: !!mj })), wireOk && hit && hit[0] === 'Marea' && hit[1] === 'Michael Jackson');
     closeAll(); clk(nodeG('Marea')); await sleep(900);  // tras un toque, d3 ignora el ratón 500 ms
     opt('expand').dispatchEvent(new MouseEvent('mousedown', { ...from, button: 0 }));
     window.dispatchEvent(new MouseEvent('mousemove', { ...from, clientX: from.clientX + 20 }));
@@ -118,6 +119,7 @@ setTimeout(async () => {
     ok('intro inmediato añade el primero', nodes.length === 1 && nodes[0].name === 'Extremoduro');
     $('clear').click(); await sleep(300);
     ok('clear', nodes.length === 0 && player.paused && !player.getAttribute('src'));
+    { const apis = performance.getEntriesByType('resource').map(e => e.name).filter(n => n.startsWith(location.origin + '/api/')); ok('sin /api (datos exportados)' + (apis.length ? ' ' + apis.slice(0, 3).join(' ') : ''), !apis.length); }
   } catch (e) { r.push('EXCEPCION ' + e.message); }
   document.title = r.join(' | ');
 }, 500);

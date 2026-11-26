@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0f1115">
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="data.js"></script>
 <style>
 :root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
 * { box-sizing: border-box; }
@@ -127,7 +128,6 @@ button:hover { background: #3a3f49; }
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
-const api = async url => { const r = await fetch(url); const j = await r.json(); if (j && j.error) throw new Error(j.error); return j; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
@@ -417,7 +417,7 @@ let showLabels = localStorage.getItem('weave-labels') === '1';  // leyenda de g�
 let selId = null;  // artista seleccionado: el pie actúa sobre él
 
 const getArtist = id => {
-  if (!artistCache.has(id)) artistCache.set(id, api('/api/artist/' + id).catch(e => { artistCache.delete(id); throw e; }));
+  if (!artistCache.has(id)) artistCache.set(id, Data.artist(id).catch(e => { artistCache.delete(id); throw e; }));
   return artistCache.get(id);
 };
 // Solo entran al grafo artistas con su ficha completa
@@ -751,7 +751,7 @@ function removeNode(n) {
 // ---------- Reproductor: un solo audio oculto, canciones del artista en vivo ----------
 const player = new Audio();
 const tracks = new Map();  // id → promesa con sus 10 canciones más escuchadas
-const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, api('/api/top/' + id).catch(() => [])); return tracks.get(id); };
+const tracksOf = id => { if (!tracks.has(id)) tracks.set(id, Data.tracks(id).catch(() => [])); return tracks.get(id); };
 let queue = { id: null, list: [], i: 0 };  // artista cargado y su canción
 let playToken = 0;  // solo cuenta la última orden (evita carreras si se pulsa rápido)
 // Interrumpir una reproducción (pausa o cambio de canción) no es un error: el navegador lo cancela con AbortError
@@ -834,7 +834,7 @@ function clearEverything() {
 // Teje un camino: los artistas entran uno a uno (los que ya están se reutilizan), unidos en dorado.
 // place(i, total) da la posición de un artista nuevo; los que ya estaban en el mapa no se mueven.
 async function weavePath(a, b, run, place) {
-  const path = await api(`/api/path?from=${a.id}&to=${b.id}`).catch(() => null);
+  const path = await Data.path(a.id, b.id).catch(() => null);
   if (run !== runId) return;
   if (!path) { flashError(); return; }
   const fulls = path.map(x => getArtist(x.id).catch(() => null));  // en paralelo; entran en orden
@@ -873,7 +873,7 @@ function connectPath(a, b) {
 // ---------- Terminal ----------
 // Un resultado por artista (Deezer duplica fichas: se queda la de más fans), en orden de relevancia
 async function searchArtists(q) {
-  const raw = await api('/api/search?q=' + encodeURIComponent(q)).catch(() => []);
+  const raw = await Data.search(q).catch(() => []);
   const best = new Map();
   raw.forEach(r => { const b = best.get(key(r)); if (!b || r.fans > b.fans) best.set(key(r), r); });
   return raw.filter(r => best.get(key(r)) === r);
