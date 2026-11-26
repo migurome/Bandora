@@ -11,7 +11,10 @@ setTimeout(async () => {
   const r = [];
   const ok = (name, cond) => r.push((cond ? 'ok ' : 'MAL ') + name);
   try {
+    await sleep(600);
+    ok('fondo animado al arrancar', $('ambient').classList.contains('on'));
     typeIn('Marea'); await sleep(2500);
+    ok('el fondo se va al buscar', !$('ambient').classList.contains('on'));
     ok('busqueda', $('results').querySelectorAll('li').length > 0);
     $('results').querySelector('li').click(); await sleep(2500);
     ok('origen añadido', nodes.length === 1 && nodes[0].name === 'Marea' && nodes[0].selected);

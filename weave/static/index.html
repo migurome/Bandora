@@ -14,7 +14,10 @@
 :root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
-#svg { display: block; width: 100vw; height: 100vh; cursor: grab; }
+#svg { display: block; width: 100vw; height: 100vh; cursor: grab; position: relative; z-index: 1; }
+/* fondo animado del arranque: detrás de todo, se desvanece al empezar a buscar */
+#ambient { position: fixed; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .7s; }
+#ambient.on { opacity: 1; }
 #svg:active { cursor: grabbing; }
 button { background: var(--line); color: var(--text); border: 0; font: inherit; cursor: pointer; }
 button:hover { background: #3a3f49; }
@@ -392,10 +395,63 @@ const game = (() => {
     paddle: () => pong.paddle(), state: () => pong.state(), bubbles: () => bobble.state(),
   };
 })();
+// Fondo del arranque: puntos de los colores de las familias que flotan y se unen al acercarse (una red que se teje
+// sola). Solo con el mapa vacío y la barra sin texto; al empezar a buscar se desvanece y se para (no gasta batería).
+const ambient = (() => {
+  const cv = document.createElement('canvas'); cv.id = 'ambient'; document.body.prepend(cv);
+  const g = cv.getContext('2d'), LINK = 130;
+  const COLORS = ['#a3c9f5', '#c9bbf6', '#b5e3a1', '#f5a3a3', '#9de3d0', '#f6e3a1', '#f5a9c8', '#f3c6a5'];
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let dots = [], frame = 0, shown = false, last = 0;
+  function size() {
+    const dpr = devicePixelRatio || 1;
+    cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+    const n = Math.round(Math.min(46, Math.max(18, innerWidth * innerHeight / 16000)));  // según el tamaño de la pantalla
+    dots = Array.from({ length: n }, (_, i) => ({
+      x: Math.random() * innerWidth, y: Math.random() * innerHeight, r: 2 + Math.random() * 4,
+      vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35, c: COLORS[i % COLORS.length] }));
+  }
+  function draw() {
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    g.lineWidth = 1;
+    for (let i = 0; i < dots.length; i++) for (let j = i + 1; j < dots.length; j++) {
+      const a = dots[i], b = dots[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d > LINK) continue;
+      g.globalAlpha = 0.28 * (1 - d / LINK); g.strokeStyle = a.c;
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+    }
+    for (const p of dots) { g.globalAlpha = 0.5; g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+  }
+  function tick(now) {
+    frame = requestAnimationFrame(tick);
+    const k = Math.min(4, (now - (last || now)) / 16.7); last = now;  // misma velocidad a 60 o 120 Hz
+    for (const p of dots) {
+      p.x += p.vx * k; p.y += p.vy * k;
+      if (p.x < -10) p.x = innerWidth + 10; if (p.x > innerWidth + 10) p.x = -10;
+      if (p.y < -10) p.y = innerHeight + 10; if (p.y > innerHeight + 10) p.y = -10;
+    }
+    draw();
+  }
+  addEventListener('resize', () => { if (shown) size(); });
+  return {
+    update() {  // visible solo con el mapa vacío, la barra sin texto y sin juego de espera
+      const want = nodes.length === 0 && !$('q').value.trim() && !game.playing();
+      if (want === shown) return;
+      shown = want; cv.classList.toggle('on', want);
+      if (want) {
+        size(); draw(); last = 0;
+        if (!still && !frame) frame = requestAnimationFrame(tick);
+      } else setTimeout(() => { if (!shown && frame) { cancelAnimationFrame(frame); frame = 0; } }, 800);  // tras el fundido
+    },
+  };
+})();
 function showBusy() {
   const on = busyCount > 0;
   document.querySelector('.ui .bar').classList.toggle('busy', on);
   if (on) game.start(); else game.stop();
+  setTimeout(() => ambient.update(), 400);  // el juego de espera tapa el fondo
 }
 // Mientras haya alguna promesa envuelta pendiente, el logo se anima
 async function working(promise) {
@@ -519,6 +575,7 @@ function nameLines(d) {
 }
 
 function render() {
+  ambient.update();
   const l = gLinks.selectAll('line').data(links, d => d.source.id + '-' + d.target.id);
   l.exit().remove();
   l.enter().append('line').merge(l)
@@ -956,6 +1013,7 @@ function runCommand(v) {
 }
 
 $('q').addEventListener('input', e => {
+  ambient.update();
   clearTimeout(timer);
   const q = e.target.value.replace(/^\s+/, '');
   if (/^\/from\s/i.test(q)) return suggestFrom(q);
