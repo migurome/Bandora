@@ -12,6 +12,8 @@ from .text import norm
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "weave.db"
 KEY_PATH = ROOT / "data" / "lastfm_key.txt"  # fuera de git; sin ella no se usa Last.fm
+# Contacto que exige la política de Wikimedia; lo escribe el usuario (fuera de git). Sin él, Wikidata nos limita.
+CONTACT_PATH = ROOT / "data" / "wikidata_contact.txt"
 EXPORT_DIR = ROOT / "resources" / "Spotify Account Data"
 POC_CACHE = ROOT / "poc" / "cache"
 
@@ -267,12 +269,14 @@ def import_poc_cache(store, cache_dir: Path) -> int:
     return used
 
 
-def open_default(db_path=DB_PATH, key_path=KEY_PATH):
+def open_default(db_path=DB_PATH, key_path=KEY_PATH, contact_path=CONTACT_PATH):
     from .db import connect
     from .http import DEEZER, LASTFM, MUSICBRAINZ, WIKIDATA, Fetcher
     from .sources import Deezer, LastFm, MusicBrainz, Wikidata
     from .store import Store
-    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12, LASTFM: 0.25, WIKIDATA: 1.0})
+    contact = Path(contact_path).read_text(encoding="utf-8").strip() if Path(contact_path).exists() else ""
+    agents = {WIKIDATA: f"Weave/0.1 (proyecto personal; {contact})"} if contact else {}
+    f = Fetcher({MUSICBRAINZ: 1.1, DEEZER: 0.12, LASTFM: 0.25, WIKIDATA: 1.0}, user_agents=agents)
     store = Store(connect(db_path))
     key = Path(key_path).read_text(encoding="utf-8").strip() if Path(key_path).exists() else ""
     return store, Ingestor(store, Deezer(f), MusicBrainz(f), LastFm(f, key) if key else None, Wikidata(f))

@@ -63,6 +63,14 @@ class FetcherTest(unittest.TestCase):
         self.assertEqual(f.get_json("http://dz/x", DEEZER), {"data": []})
         self.assertEqual(c.sleeps.count(5), 1)
 
+    def test_user_agent_per_service(self):
+        seen = []
+        c = FakeClock()
+        f = Fetcher({DEEZER: 0.12, MUSICBRAINZ: 1.1}, sleep=c.sleep, opener=opener_returning({}, {}, seen=seen), clock=c.now,
+                    user_agents={MUSICBRAINZ: "Weave/0.1 (contacto)"})
+        f.get_json("http://dz/x", DEEZER); f.get_json("http://mb/x", MUSICBRAINZ)
+        self.assertEqual([r.get_header("User-agent") for r in seen], ["Weave/0.1 (prueba local)", "Weave/0.1 (contacto)"])
+
     def test_retries_429_honouring_retry_after(self):
         c = FakeClock()
         f = fetcher(c, opener_returning((429, {"Retry-After": "7"}), {"ok": 1}))

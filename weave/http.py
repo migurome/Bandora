@@ -14,9 +14,11 @@ ATTEMPTS = 4
 
 
 class Fetcher:
-    def __init__(self, min_interval: dict, sleep=time.sleep, opener=urllib.request.urlopen, clock=time.monotonic):
+    def __init__(self, min_interval: dict, sleep=time.sleep, opener=urllib.request.urlopen, clock=time.monotonic,
+                 user_agents=None):
         self.min_interval = min_interval
         self.sleep, self.opener, self.clock = sleep, opener, clock
+        self.user_agents = user_agents or {}  # identificación propia por servicio (Wikidata pide un contacto)
         self._locks = {s: threading.Lock() for s in min_interval}
         self._last = {s: None for s in min_interval}
 
@@ -30,7 +32,7 @@ class Fetcher:
             self._last[service] = self.clock()
 
     def get_json(self, url: str, service: str):
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        req = urllib.request.Request(url, headers={"User-Agent": self.user_agents.get(service, UA)})
         for attempt in range(ATTEMPTS):
             self._pace(service)
             try:
