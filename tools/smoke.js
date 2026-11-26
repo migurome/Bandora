@@ -34,14 +34,17 @@ setTimeout(async () => {
     ok('etiqueta solo con ratón', !touchTip && mouseTip);
     ok('spotify abre la app en android', spotifyUrl('Marea', 'Mozilla/5.0 (Linux; Android 12)') .startsWith('intent:search:Marea#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com%2Fsearch%2FMarea')
        && spotifyUrl('Marea', 'Mozilla/5.0 (Windows NT 10.0)') === 'https://open.spotify.com/search/Marea');
-    const wait = working(sleep(3000)); await sleep(1900);
+    const wait = working(sleep(4000)); await sleep(700);
     const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
-    $('game').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 300 }));
-
-    ok('espera: «searching» en la barra y nada más', bar.classList.contains('busy') && word && word.textContent === 'searching' && !document.getElementById('busy'));
-    await sleep(100);
-    ok('espera: pong, la pala sigue el dedo', game.playing() && game.paddle() === 120);
+    ok('espera: «searching» en la barra', bar.classList.contains('busy') && word && word.textContent === 'searching');
+    const st = game.state(), big = st.circles[0];
+    $('game').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: big.x, clientY: big.y }));
+    await sleep(1500);
+    ok('espera: la bola enciende el círculo que golpea' + (game.state().lit.some(Boolean) ? '' : ' ' + JSON.stringify({ p: game.playing(), big, lit: game.state().lit, w: innerWidth, h: innerHeight })), game.playing() && st.circles.length === 4 && game.state().lit.some(Boolean));
     await wait; await sleep(800);
+    cmd('/debug pong'); await sleep(900); const dbgOn = game.playing();
+    cmd('/debug off'); await sleep(700);
+    ok('/debug pong lo lanza y /debug off lo para', dbgOn && !game.playing());
     ok('fin de espera: sin «searching» ni juego', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);

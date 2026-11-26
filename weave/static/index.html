@@ -58,7 +58,7 @@ button:hover { background: #3a3f49; }
   font: 14px ui-monospace, 'Cascadia Mono', Consolas, monospace; pointer-events: none; opacity: 0; }
 .ui .bar.busy .searching { animation: breathe 1.4s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-/* minijuego de la espera: un Pong sobre el mapa; tu pala abajo sigue el dedo */
+/* la espera: la forma del icono con una barra que gira y una bola que la enciende */
 #game { position: fixed; left: 0; top: 0; z-index: 1; display: none; opacity: 0; transition: opacity .4s; touch-action: none; }
 #game.on { display: block; opacity: 1; }
 #game.fade { display: block; opacity: 0; pointer-events: none; }
@@ -174,60 +174,87 @@ function flashError() {
 
 // ---------- Logo de carga ----------
 let busyCount = 0;
-// Minijuego de la espera: un Pong sobre el mapa. Tu pala (amarilla) abajo sigue el dedo de izquierda a derecha; la
-// de la máquina (gris) arriba. Si la pelota se escapa, vuelve al centro y saca hacia el otro lado. Sin marcador.
+// La espera: la forma del icono (círculo grande y tres pequeños) en negro, con una barra amarilla que gira
+// alrededor del grande. Una bola amarilla con estela rebota como en un Pong contra los bordes y los círculos;
+// cada círculo que golpea se enciende en amarillo. Con los cuatro encendidos, acorde y vuelta a negro.
+// Tocar la pantalla lanza la bola hacia el dedo.
 const game = (() => {
   const cv = document.createElement('canvas'); cv.id = 'game'; document.body.appendChild(cv);
-  const g = cv.getContext('2d'), PW = 84, PH = 8, BALL = 6, TOP = 112, BOTTOM = 96;  // libres la barra y el pie
-  let wait = 0, frame = 0, me, cpu, ball, aim = null;
-  const yMe = () => innerHeight - BOTTOM - PH, yCpu = () => TOP;
-  function serve(dir) {
-    const a = (Math.random() - 0.5) * 1.2;
-    ball = { x: innerWidth / 2, y: innerHeight / 2, vx: 4 * Math.sin(a), vy: 4 * Math.cos(a) * dir };
-  }
+  const g = cv.getContext('2d'), BALL = 6, SPEED = 5, TOP = 100, BOTTOM = 80;
+  const SHAPE = [[34, 64, 17], [96, 26, 13], [96, 64, 13], [96, 102, 13]];  // el icono, en su caja de 128
+  const Y = '#f2c94c', DARK = '#0f1115', EDGE = '#9aa0aa';
+  let wait = 0, frame = 0, circles = [], lit = [], ball, trail = [], spin = 0, hits = 0, last = 0;
   function reset() {
     const dpr = devicePixelRatio || 1;
     cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
     cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';  // 100vh en el móvil es más alto que lo visible
-    me = cpu = innerWidth / 2; aim = null; serve(1);
+    const s = Math.min(innerWidth * 0.6, (innerHeight - TOP - BOTTOM) * 0.5, 280) / 128;
+    const cx = innerWidth / 2, cy = TOP + (innerHeight - TOP - BOTTOM) / 2;
+    circles = SHAPE.map(([x, y, r]) => ({ x: cx + (x - 64) * s, y: cy + (y - 64) * s, r: r * s }));
+    lit = circles.map(() => false); trail = []; hits = 0;
+    const a = Math.random() * Math.PI * 2;
+    ball = { x: cx, y: innerHeight - BOTTOM - 40, vx: SPEED * Math.cos(a), vy: -Math.abs(SPEED * Math.sin(a)) - 1 };
   }
-  const clampX = x => Math.max(PW / 2, Math.min(innerWidth - PW / 2, x));
-  function hit(px, py, down) {  // ¿toca la pala? rebota con efecto según dónde pegue
-    if (Math.abs(ball.x - px) > PW / 2 + BALL || (down ? ball.y + BALL < py || ball.y - BALL > py + PH : ball.y - BALL > py + PH || ball.y + BALL < py)) return;
-    const speed = Math.min(11, Math.hypot(ball.vx, ball.vy) * 1.06), off = (ball.x - px) / (PW / 2);
-    ball.vx = speed * off * 0.8; ball.vy = Math.sqrt(Math.max(1, speed * speed - ball.vx * ball.vx)) * (down ? -1 : 1);
-    ball.y = down ? py - BALL : py + PH + BALL;
-    sfx.join(Math.round(speed));
+  function bounce() {
+    if (ball.x < BALL || ball.x > innerWidth - BALL) { ball.vx *= -1; ball.x = Math.max(BALL, Math.min(innerWidth - BALL, ball.x)); }
+    if (ball.y < TOP + BALL || ball.y > innerHeight - BOTTOM - BALL) { ball.vy *= -1; ball.y = Math.max(TOP + BALL, Math.min(innerHeight - BOTTOM - BALL, ball.y)); }
+    circles.forEach((c, i) => {
+      const dx = ball.x - c.x, dy = ball.y - c.y, d = Math.hypot(dx, dy);
+      if (d >= c.r + BALL || d === 0) return;
+      const nx = dx / d, ny = dy / d, dot = ball.vx * nx + ball.vy * ny;
+      if (dot < 0) { ball.vx -= 2 * dot * nx; ball.vy -= 2 * dot * ny; }  // rebote en la normal
+      ball.x = c.x + nx * (c.r + BALL); ball.y = c.y + ny * (c.r + BALL);
+      if (!lit[i]) {
+        lit[i] = true; sfx.join(hits++);
+        if (lit.every(Boolean)) { sfx.chord(); setTimeout(() => { lit = lit.map(() => false); }, 700); }
+      }
+    });
   }
   function tick() {
-    frame = requestAnimationFrame(tick);
-    if (aim != null) me = clampX(aim);
-    cpu = clampX(cpu + Math.max(-4.2, Math.min(4.2, ball.x - cpu)));  // la máquina persigue la pelota, con límite
-    ball.x += ball.vx; ball.y += ball.vy;
-    if (ball.x < BALL || ball.x > innerWidth - BALL) { ball.vx *= -1; ball.x = Math.max(BALL, Math.min(innerWidth - BALL, ball.x)); }
-    if (ball.vy > 0) hit(me, yMe(), true); else hit(cpu, yCpu(), false);
-    if (ball.y > innerHeight - BOTTOM + 30) serve(-1);       // se te escapa: saca la máquina
-    else if (ball.y < TOP - 30) { sfx.chord(); serve(1); }  // se le escapa a la máquina
+    const now = performance.now(), steps = Math.min(60, Math.max(1, Math.round((now - last) / 16.7)));  // a tiempo real (60/120 Hz)
+    last = now;
+    for (let i = 0; i < steps; i++) {
+      ball.x += ball.vx; ball.y += ball.vy; bounce();
+      trail.unshift([ball.x, ball.y]); trail.length = Math.min(trail.length, 12);
+      spin += 0.07;
+    }
     g.clearRect(0, 0, innerWidth, innerHeight);
-    g.fillStyle = '#f2c94c'; g.beginPath(); g.roundRect(me - PW / 2, yMe(), PW, PH, 4); g.fill();
-    g.fillStyle = '#9aa0aa'; g.beginPath(); g.roundRect(cpu - PW / 2, yCpu(), PW, PH, 4); g.fill();
-    g.fillStyle = '#eceef2'; g.beginPath(); g.arc(ball.x, ball.y, BALL, 0, 7); g.fill();
+    const [big, ...small] = circles;
+    g.strokeStyle = EDGE; g.lineWidth = Math.max(2, big.r * 0.3); g.lineCap = 'round';
+    small.forEach(c => {  // ramas de borde a borde
+      const a = Math.atan2(c.y - big.y, c.x - big.x);
+      g.beginPath(); g.moveTo(big.x + Math.cos(a) * big.r, big.y + Math.sin(a) * big.r);
+      g.lineTo(c.x - Math.cos(a) * c.r, c.y - Math.sin(a) * c.r); g.stroke();
+    });
+    circles.forEach((c, i) => {
+      g.fillStyle = lit[i] ? Y : DARK; g.strokeStyle = lit[i] ? Y : EDGE; g.lineWidth = 2;
+      g.beginPath(); g.arc(c.x, c.y, c.r, 0, 7); g.fill(); g.stroke();
+    });
+    g.strokeStyle = Y; g.lineWidth = 4;  // la barra que gira: está cargando
+    g.beginPath(); g.arc(big.x, big.y, big.r + 9, spin, spin + 1.6); g.stroke();
+    trail.forEach(([x, y], i) => {  // estela que se apaga
+      g.globalAlpha = 0.5 * (1 - i / trail.length); g.fillStyle = Y;
+      g.beginPath(); g.arc(x, y, BALL * (1 - i / trail.length / 2), 0, 7); g.fill();
+    });
+    g.globalAlpha = 1; g.fillStyle = Y; g.beginPath(); g.arc(ball.x, ball.y, BALL, 0, 7); g.fill();
   }
-  const follow = e => { aim = e.clientX; me = clampX(aim); };  // al instante, sin esperar al fotograma
-  cv.addEventListener('pointerdown', e => { e.preventDefault(); follow(e); });
-  cv.addEventListener('pointermove', follow);
+  cv.addEventListener('pointerdown', e => {  // la bola sale hacia el dedo
+    e.preventDefault();
+    const dx = e.clientX - ball.x, dy = e.clientY - ball.y, d = Math.hypot(dx, dy) || 1;
+    ball.vx = dx / d * SPEED; ball.vy = dy / d * SPEED;
+  });
   return {
     start() {
       if (wait || frame) return;
-      wait = setTimeout(() => { wait = 0; reset(); cv.className = 'on'; frame = requestAnimationFrame(tick); }, 1200);
+      wait = setTimeout(() => { wait = 0; reset(); last = performance.now(); cv.className = 'on'; frame = setInterval(tick, 16); }, 300);  // temporizador: sigue aunque se pinten pocos fotogramas
     },
     stop() {
       clearTimeout(wait); wait = 0;
       if (!frame) return;
-      cancelAnimationFrame(frame); frame = 0; cv.className = 'fade';
+      clearInterval(frame); frame = 0; cv.className = 'fade';
       setTimeout(() => { if (!frame) cv.className = ''; }, 450);
     },
-    playing: () => !!frame, paddle: () => me,
+    playing: () => !!frame, state: () => ({ circles, lit }),
   };
 })();
 function showBusy() {
@@ -760,7 +787,14 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
+  { usage: '/debug <b>pong</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(pong|off))?$/i, run: m => debugPong(!m[1] || m[1].toLowerCase() === 'pong') },
 ];
+// /debug pong: lanza la espera (con su juego) hasta /debug off, para probarla sin tener que esperar a una carga
+let debugEnd = null;
+function debugPong(on) {
+  if (debugEnd) { debugEnd(); debugEnd = null; }
+  if (on) working(new Promise(r => { debugEnd = r; }));
+}
 function showCommands(q) {
   const word = q.split(/\s+/)[0].toLowerCase();
   const list = COMMANDS.filter(c => c.fill.trim().startsWith(word));
