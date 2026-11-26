@@ -34,6 +34,8 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 ```bash
 python -m weave.ingest seed     # encola tus artistas del export de Spotify (resources/)
 python -m weave.ingest crawl    # los completa (reanudable; Ctrl+C para parar)
+python -m weave.ingest lastfm   # géneros y parecidos de Last.fm (clave en data/lastfm_key.txt)
+python -m weave.ingest wikidata # miembros e influencias (contacto en data/wikidata_contact.txt)
 python -m weave.ingest status
 ```
 
@@ -48,7 +50,7 @@ python -I tools/smoke.py                        # interfaz en Edge sin ventana (
 
 | Ruta | Qué es |
 |---|---|
-| `weave/` | Paquete: servidor, base de datos, ingesta, grafo, clientes de Deezer y MusicBrainz |
+| `weave/` | Paquete: servidor, base de datos, ingesta, grafo, clientes de Deezer, MusicBrainz, Last.fm y Wikidata |
 | `weave/static/` | La página (HTML + D3) |
 | `tests/` | Pruebas unitarias |
 | `tools/` | Prueba de humo de la interfaz y la web de estadísticas de Spotify |

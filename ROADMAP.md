@@ -78,12 +78,18 @@ Plan: `docs/superpowers/plans/2026-11-25-fase2a-lastfm-familias.md`.
 Criterios comprobados: Leño → Rock (rock urbano) · Vivaldi y Hans Zimmer → Clásica / Bandas sonoras ·
 Camarón → Latina / Flamenco · Marea despliega primero Extremoduro y La Fuga.
 
-### Fase 2b · Sinergias de Wikidata
+### Fase 2b · Sinergias de Wikidata — ✅ hecha (26/11/2026)
 
-- Miembros compartidos, colaboraciones e influencias como relaciones de otro tipo.
-- Mostrar por qué dos artistas están conectados, sin texto (estilo de línea o icono).
+Miembros compartidos e influencias de Wikidata como relaciones simétricas con motivo; suben en el orden de
+las 5 que se despliegan. La línea dice el motivo sin texto: lila = miembros, verde agua = influencia (el
+camino dorado manda; `/label on` muestra la leyenda). Relleno: `python -m weave.ingest wikidata`
+(1.100 artistas; 2.087 parejas de miembros y 2.011 de influencia). Wikimedia exige un contacto en la
+identificación: va en `data/wikidata_contact.txt` (fuera de git) y solo se envía a Wikidata.
+Plan: `docs/superpowers/plans/2026-11-26-fase2b-sinergias-wikidata.md`.
 
-**Hecho cuando:** dos bandas con un miembro en común aparecen conectadas aunque no «suenen» parecidas.
+Criterios comprobados: Extremoduro sale unida en lila con Platero y Tú, Extrechinato y Tú e Inconscientes ·
+1.647 parejas con miembros en común que no salían como parecidas. Las colaboraciones quedan fuera.
+Alternativa si Wikidata falla: relaciones «miembro de» de MusicBrainz (sin influencias).
 
 ### Fase 3 · Explorador definitivo
 
