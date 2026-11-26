@@ -132,6 +132,14 @@ setTimeout(async () => {
     const offSearch = await Data.search('Marea'), offMore = await Data.more('dz27').then(() => 'ok', () => 'falla');
     Data.offline = false;
     ok('sin red: busca en lo guardado y lo de Deezer falla sin colgarse', offSearch.length > 0 && offMore === 'falla');
+    // sin foto: el nombre dentro de la bola (y no debajo); las fotos que faltan se piden a Deezer
+    const bare = addArtist({ id: 'prueba-sin-foto', name: 'Kanka de Prueba', fans: 1, genres: ['x'], family: 'Otros', color: '#c0c6cf', familyOrder: 9, picture: null });
+    bare.picture = null; render(); await sleep(200);
+    const bg = nodeG('Kanka de Prueba');
+    ok('sin foto: nombre dentro de la bola', bg && bg.querySelectorAll('text.inner tspan').length > 0 && !bg.querySelector('text.label tspan'));
+    removeNode(bare); await sleep(200);
+    const ph = await Data.photo((await Data.search('Kanka'))[0].id).catch(() => 'falla');
+    ok('foto en vivo de quien no la tiene guardada', ph === null || /^https:/.test(ph));
     { const apis = performance.getEntriesByType('resource').map(e => e.name).filter(n => n.startsWith(location.origin + '/api/')); ok('sin /api (datos exportados)' + (apis.length ? ' ' + apis.slice(0, 3).join(' ') : ''), !apis.length); }
   } catch (e) { r.push('EXCEPCION ' + e.message); }
   document.title = r.join(' | ');

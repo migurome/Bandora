@@ -83,6 +83,10 @@ button:hover { background: #3a3f49; }
 .node.off { opacity: .07; pointer-events: none; }
 .link.off { opacity: .04; }
 .far .node text { display: none; }
+/* sin foto: bola con brillo de cristal y el nombre dentro */
+.node .inner { fill: #0f1115; stroke: none; font-weight: 700; pointer-events: none; user-select: none; }
+.node .gloss { pointer-events: none; }
+.node.playing .inner { opacity: .35; }
 .node text { pointer-events: none; user-select: none; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .node .dot, .node clipPath circle { transition: r .2s; }
 .node .pic { transition: filter .3s; }
@@ -485,6 +489,12 @@ function addArtist(full, origin = false) {
         picture: full.picture, origin,
         x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight / 2 + (Math.random() - .5) * 200 };
   nodes.push(n); byId.set(n.id, n); byName.set(key(n), n);
+  if (!n.picture || n.genre === 'Otros') Data.extra(n.id).then(x => {  // lo que falte (foto, familia), en vivo
+    if (!x || byId.get(n.id) !== n) return;
+    if (x.picture && !n.picture) n.picture = x.picture;
+    if (x.family && n.genre === 'Otros') Object.assign(n, { genre: x.family, color: x.color, order: x.order, sub: x.genre });
+    render();
+  }, () => {});
   return n;
 }
 const KIND_RANK = { similar: 0, influence: 1, member: 2 };  // motivo más fuerte primero
@@ -499,6 +509,9 @@ function addLink(a, b, path = false, kind = 'similar') {
 const svg = d3.select('#svg');
 const root = svg.append('g');
 const gLinks = root.append('g'), gNodes = root.append('g');
+// brillo de esfera para las bolas sin foto
+const gloss = svg.append('defs').append('radialGradient').attr('id', 'gloss').attr('cx', '35%').attr('cy', '30%').attr('r', '75%');
+[[0, '#fff', 0.55], [0.45, '#fff', 0.1], [1, '#000', 0.2]].forEach(([o, c, a]) => gloss.append('stop').attr('offset', o).attr('stop-color', c).attr('stop-opacity', a));
 let k = 1;
 let wantFit = false, autoFit = false;  // autoFit: reencuadrar mientras se traza un camino, hasta que el usuario mueva el mapa
 // En el móvil el pellizco manda más eventos que fotogramas: se pinta uno por fotograma, los nombres solo
@@ -554,6 +567,24 @@ const sim = d3.forceSimulation(nodes)
   .on('end', () => { if (wantFit || autoFit) { wantFit = false; fitIfNeeded(); } });
 setInterval(() => { if (autoFit) fitIfNeeded(); }, 2000);
 
+// Nombre dentro de la bola (sin foto): 1 a 3 líneas equilibradas, la letra más grande que quepa
+function innerLines(d) {
+  const r = radius(d), words = d.name.split(/\s+/).filter(Boolean);
+  ctx2d.font = '700 10px system-ui, "Segoe UI", sans-serif';
+  let best = { lines: [d.name], size: 7 };
+  for (let n = 1; n <= Math.min(3, words.length); n++) {
+    const lines = [], per = d.name.length / n;  // reparto por longitud
+    let cur = '';
+    for (const w of words) {
+      if (cur && (cur + ' ' + w).length > per * 1.15 && lines.length < n - 1) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w;
+    }
+    lines.push(cur);
+    const widest = Math.max(...lines.map(t => ctx2d.measureText(t).width)) / 10;  // ancho por px de letra
+    const size = Math.max(7, Math.min(1.5 * r / widest, 1.4 * r / (lines.length * 1.05), r * 0.5));
+    if (size > best.size) best = { lines, size };
+  }
+  return best;
+}
 // Nombre bajo la foto: hasta 2 líneas equilibradas
 const ctx2d = document.createElement('canvas').getContext('2d');
 const LINE_H = 12;
@@ -597,10 +628,12 @@ function render() {
   e.append('circle').attr('class', 'spin');
   e.append('circle').attr('class', 'dot');
   e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');  // recorte circular de la foto
+  e.append('circle').attr('class', 'gloss').attr('fill', 'url(#gloss)');
+  e.append('text').attr('class', 'inner').attr('text-anchor', 'middle');
   e.append('image').attr('class', 'pic').attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', d => `url(#clip${d.id})`);
   e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
   e.append('path').attr('class', 'pinmark').attr('d', 'M-11,0 H11 L12.5,-11 L6.5,-6.5 L0,-14 L-6.5,-6.5 L-12.5,-11 Z');  // corona
-  e.append('text').attr('text-anchor', 'middle');
+  e.append('text').attr('class', 'label').attr('text-anchor', 'middle');
 
   const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
   all.select('clipPath circle').attr('r', radius);
@@ -618,8 +651,15 @@ function render() {
   all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
   all.select('.pinmark').attr('display', d => d.pinned ? null : 'none')
     .attr('transform', d => `translate(0,${-radius(d) + 3}) scale(${Math.max(0.8, radius(d) / 40)})`);  // encima del círculo
-  all.select('text').each(function (d) {
-    const L = nameLines(d);
+  all.select('.gloss').attr('r', radius).attr('display', d => d.picture ? 'none' : null);
+  all.select('text.inner').each(function (d) {  // sin foto: el nombre dentro, ajustado al tamaño de la bola
+    const I = d.picture ? { lines: [], size: 0 } : innerLines(d);
+    d3.select(this).style('font-size', I.size + 'px')
+      .selectAll('tspan').data(I.lines).join('tspan').attr('x', 0)
+      .attr('dy', (t, i) => i ? I.size * 1.05 : -(I.lines.length - 1) * I.size * 0.525 + I.size * 0.35).text(t => t);
+  });
+  all.select('text.label').each(function (d) {
+    const L = d.picture ? nameLines(d) : { font: '', lines: [] };  // sin foto el nombre ya va dentro
     d3.select(this).style('font', L.font)
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
       // debajo del círculo; encima mientras está ampliado (el menú ocupa la parte de abajo)

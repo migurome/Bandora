@@ -15,7 +15,9 @@ const Data = (() => {
       byId.set(id, a); list.push(a); if (dz) byDz.set(dz, id);
     }
   });
-  const picture = p => !p ? null : /^[0-9a-f]{32}$/.test(p) ? `https://cdn-images.dzcdn.net/images/artist/${p}/250x250-000000-80-0-0.jpg` : p;
+  // foto: hash de Deezer o URL; la imagen genérica de Deezer (sin hash) cuenta como «sin foto»
+  const BLANK = /\/artist\/\/|d41d8cd98f00b204e9800998ecf8427e/;
+  const picture = p => !p || BLANK.test(p) ? null : /^[0-9a-f]{32}$/.test(p) ? `https://cdn-images.dzcdn.net/images/artist/${p}/250x250-000000-80-0-0.jpg` : p;
   const rel = id => (related[id] || []).map(x => Array.isArray(x) ? x : [x, 0]);
 
   // Búsqueda: por el principio del nombre normalizado; primero los que se pueden desplegar, luego los más seguidos
@@ -120,6 +122,29 @@ const Data = (() => {
       document.head.appendChild(s);
     });
   }
+  // Lo que falte en los datos (foto; familia de quien no tiene géneros), pedido a Deezer una vez y recordado en el
+  // móvil (localStorage): { picture, family, color, order, genre }
+  const EXTRA = 'weave-extra', known = JSON.parse(localStorage.getItem(EXTRA) || '{}');
+  async function extra(id) {
+    await ready;
+    if (id in known) return known[id];
+    const a = typeof id === 'string' ? live.get(id) : byId.get(id);
+    const dz = typeof id === 'string' ? id.slice(2) : a && a.dz;
+    if (!a || !dz) return null;
+    const out = { picture: a.picture || picture(a.pic) };
+    if (!out.picture) out.picture = picture((await deezer('/artist/' + dz)).picture_medium || '');
+    if (typeof id !== 'string' && a.fam === families.length - 1) {  // «Otros»: géneros del primer disco
+      const albums = await deezer(`/artist/${dz}/albums?limit=1`).then(d => d.data || []);
+      const album = albums[0] && await deezer('/album/' + albums[0].id);
+      const genres = ((album && album.genres && album.genres.data) || []).slice(0, 2).map(g => g.name.toLowerCase());
+      const fam = familyOf(genres);
+      if (fam !== families.length - 1) Object.assign(out, { family: families[fam].name, color: families[fam].color, order: fam, genre: genres[0] });
+    }
+    known[id] = out;
+    try { localStorage.setItem(EXTRA, JSON.stringify(known)); } catch { /* lleno: solo en memoria */ }
+    return out;
+  }
+  const photo = id => extra(id).then(x => x && x.picture);
   async function tracks(id) {
     await ready;
     const dz = typeof id === 'string' ? id.slice(2) : (byId.get(id) || {}).dz;
@@ -127,6 +152,6 @@ const Data = (() => {
     const d = await deezer(`/artist/${dz}/top?limit=10`);
     return (d.data || []).filter(t => t.preview).map(t => ({ title: t.title, preview: t.preview }));
   }
-  const api = { ready, search, artist, more, path, tracks, deezer, norm: nrm, offline: false };  // offline: simula sin red
+  const api = { ready, search, artist, more, path, tracks, photo, extra, deezer, norm: nrm, offline: false };  // offline: simula sin red
   return api;
 })();
