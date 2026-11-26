@@ -41,8 +41,10 @@ setTimeout(async () => {
     select(sink); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' })); await sleep(300);
     ok('supr', nodes.length === 5);
     const other = nodes.find(n => n.name !== 'Marea' && n !== sink);
+    queue = { id: other.id, list: [], i: 0 };  // como si sonara
     select(other); clk(nodeG(other.name)); await sleep(300); clk(opt('remove')); await sleep(300);
     ok('quitar desde el menú', nodes.length === 4 && !byId.has(other.id));
+    ok('quitar el que suena lo calla', queue.id == null);
     clk(document.getElementById('svg')); await sleep(200);
     ok('fondo cierra', !document.querySelector('g.opt') && selId == null);
     // arrastrar desde el botón de desplegar de Marea hasta Michael Jackson teje el camino dentro del mapa

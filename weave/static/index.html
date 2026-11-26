@@ -518,6 +518,7 @@ function removeNode(n) {
   byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
   nodes.forEach(m => { if (degree(m) < MAX_LINKS) m.exhausted = false; });  // quien pierde conexiones puede volver a explorar
   if (!byId.has(selId)) selId = null;
+  if (queue.id != null && !byId.has(queue.id)) stopMusic();  // se ha ido el que sonaba (o cayó con él)
   $('tip').style.display = 'none';
   sfx.remove();
   render();
