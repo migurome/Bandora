@@ -27,8 +27,6 @@ def main(remote: str) -> int:
     sys.path.insert(0, str(ROOT))
     from weave import export
     export.main()
-    name = subprocess.run(["git", "config", "user.name"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-    email = subprocess.run(["git", "config", "user.email"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     with tempfile.TemporaryDirectory(prefix="weave-pages-") as tmp:
         out = Path(tmp)
         for rel in files_to_publish(STATIC):
@@ -37,7 +35,9 @@ def main(remote: str) -> int:
         (out / ".nojekyll").write_text("")  # que GitHub sirva los archivos tal cual
         git("init", "-q", "-b", "gh-pages", cwd=out)
         git("add", "-A", cwd=out)
-        git("-c", f"user.name={name}", "-c", f"user.email={email}", "commit", "-q", "-m", "Publicar Weave bands", cwd=out)
+        # firma genérica: el repositorio de Pages es público y no debe llevar el correo del usuario
+        git("-c", "user.name=Weave bands", "-c", "user.email=weave-bands@users.noreply.github.com",
+            "commit", "-q", "-m", "Publicar Weave bands", cwd=out)
         git("push", "-q", "--force", remote, "gh-pages", cwd=out)
     print(f"Publicado en la rama gh-pages de {remote}")
     return 0
