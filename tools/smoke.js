@@ -119,6 +119,16 @@ setTimeout(async () => {
     ok('intro inmediato añade el primero', nodes.length === 1 && nodes[0].name === 'Extremoduro');
     $('clear').click(); await sleep(300);
     ok('clear', nodes.length === 0 && player.paused && !player.getAttribute('src'));
+    // Deezer en vivo: un artista que no viene de los datos entra con ficha completa y se puede desplegar
+    const live = await Data.artist('dz27').catch(e => null);  // 27 = Daft Punk en Deezer
+    const liveRel = await Data.more('dz27').catch(e => []);
+    ok('en vivo: ficha con familia y relacionadas', live && live.name === 'Daft Punk' && live.family === 'Electrónica' && liveRel.length > 0);
+    const mtr = await Data.tracks(nodes.length ? nodes[0].id : (await Data.search('Marea'))[0].id).catch(() => []);
+    ok('en vivo: canciones con preview', mtr.length > 0 && mtr.every(t => t.preview));
+    Data.offline = true;
+    const offSearch = await Data.search('Marea'), offMore = await Data.more('dz27').then(() => 'ok', () => 'falla');
+    Data.offline = false;
+    ok('sin red: busca en lo guardado y lo de Deezer falla sin colgarse', offSearch.length > 0 && offMore === 'falla');
     { const apis = performance.getEntriesByType('resource').map(e => e.name).filter(n => n.startsWith(location.origin + '/api/')); ok('sin /api (datos exportados)' + (apis.length ? ' ' + apis.slice(0, 3).join(' ') : ''), !apis.length); }
   } catch (e) { r.push('EXCEPCION ' + e.message); }
   document.title = r.join(' | ');

@@ -706,8 +706,10 @@ async function expand(n) {
   select(n);
   n.loading = true; render();
   const a = await getArtist(n.id).catch(() => null);
-  if (!a) { n.loading = false; flashError(); render(); return; }
-  const picks = a.related.filter(r => !inMap(r)).slice(0, Math.max(0, MAX_LINKS - degree(n)));
+  // sin relacionadas guardadas: las de Deezer en vivo (sin red, aviso)
+  const related = a && (a.related.length ? a.related : await Data.more(n.id).catch(() => null));
+  if (!a || !related) { n.loading = false; flashError(); render(); return; }
+  const picks = related.filter(r => !inMap(r)).slice(0, Math.max(0, MAX_LINKS - degree(n)));
   const angles = fanAngles(n, picks.length);
   const fulls = picks.map(r => getArtist(r.id).catch(() => null));  // en paralelo; entran en orden y ya completas
   let added = 0;
