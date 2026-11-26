@@ -37,7 +37,8 @@ setTimeout(async () => {
     ok('etiqueta solo con ratón', !touchTip && mouseTip);
     ok('spotify abre la app en android', spotifyUrl('Marea', 'Mozilla/5.0 (Linux; Android 12)') .startsWith('intent:search:Marea#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com%2Fsearch%2FMarea')
        && spotifyUrl('Marea', 'Mozilla/5.0 (Windows NT 10.0)') === 'https://open.spotify.com/search/Marea');
-    const wait = working(sleep(1500)); await sleep(700);
+    { const w = working(sleep(700)); await sleep(500); ok('una espera corta no saca el juego', !game.playing()); await w; await sleep(100); }
+    const wait = working(sleep(2500)); await sleep(1500);
     const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
     ok('espera: «searching» en la barra y un juego', bar.classList.contains('busy') && word && word.textContent === 'searching' && game.playing());
     await wait; await sleep(700);
@@ -55,6 +56,10 @@ setTimeout(async () => {
     ok('burbujas: panal con iconos y disparo que se queda', game.mode() === 'bobble' && b0.count > 10 && b1.shots === 1 && !b1.flying && b1.count !== b0.count);
     cmd('/debug off'); await sleep(700);
     ok('/debug off lo para', !game.playing());
+    ok('al parar libera el lienzo del juego', $('game').width === 0);
+    cmd('/debug pong'); await sleep(600);
+    { const n0 = nodes.length; $('clear').click(); await sleep(700);
+      ok('✕ sale del debug sin borrar el mapa', !game.playing() && nodes.length === n0 && n0 > 0); }
     ok('fin de espera: sin «searching» ni juego', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);

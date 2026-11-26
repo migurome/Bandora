@@ -388,13 +388,13 @@ const game = (() => {
         cur = games[mode] || (turn++ % 2 ? bobble : pong); cur.reset();
         last = performance.now(); cv.className = 'on';
         frame = setInterval(tick, 16);  // temporizador y no fotogramas: sigue aunque el navegador pinte poco
-      }, mode ? 0 : 300);
+      }, mode ? 0 : 1000);  // solo si la espera es larga: en una carga normal no destella
     },
     stop() {
       clearTimeout(wait); wait = 0;
       if (!frame) return;
       clearInterval(frame); frame = 0; cv.className = 'fade';
-      setTimeout(() => { if (!frame) cv.className = ''; }, 450);
+      setTimeout(() => { if (!frame) { cv.className = ''; cv.width = cv.height = 0; cur = null; } }, 450);  // suelta la memoria del lienzo
     },
     playing: () => !!frame, mode: () => frame && cur ? cur.name : null,
     paddle: () => pong.paddle(), state: () => pong.state(), bubbles: () => bobble.state(),
@@ -448,7 +448,7 @@ const ambient = (() => {
       if (want) {
         size(); draw(); last = 0;
         if (!still && !frame) frame = requestAnimationFrame(tick);
-      } else setTimeout(() => { if (!shown && frame) { cancelAnimationFrame(frame); frame = 0; } }, 800);  // tras el fundido
+      } else setTimeout(() => { if (!shown) { cancelAnimationFrame(frame); frame = 0; cv.width = cv.height = 0; dots = []; } }, 800);  // tras el fundido
     },
   };
 })();
@@ -962,6 +962,7 @@ function stopMusic() {
 }
 // ✕ y /clear: si hay coronas, quedan solo las favoritas; si ya solo hay favoritas (o ninguna), se borra todo
 function clearEverything() {
+  if (debugEnd) return debugGame('off');  // con un juego de /debug, la ✕ solo sale de él
   remember(); runId++;
   const pinned = nodes.filter(n => n.pinned);
   if (pinned.length && pinned.length < nodes.length) {
