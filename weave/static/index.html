@@ -58,7 +58,7 @@ button:hover { background: #3a3f49; }
   font: 14px ui-monospace, 'Cascadia Mono', Consolas, monospace; pointer-events: none; opacity: 0; }
 .ui .bar.busy .searching { animation: breathe 1.4s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-/* la espera: el círculo con su menú, una barra que gira y un Pong que enciende los botones */
+/* la espera: un minijuego sobre el mapa (Pong o burbujas, por turnos) */
 #game { position: fixed; left: 0; top: 0; z-index: 1; display: none; opacity: 0; transition: opacity .4s; touch-action: none; }
 #game.on { display: block; opacity: 1; }
 #game.fade { display: block; opacity: 0; pointer-events: none; }
@@ -174,13 +174,11 @@ function flashError() {
 
 // ---------- Logo de carga ----------
 let busyCount = 0;
-// La espera: el círculo grande con su menú (desplegar, corona, play, siguiente, quitar, Spotify) en negro y una barra
-// amarilla que gira a su alrededor. Una bola amarilla con estela rebota como en el Pong: tu pala abajo sigue el dedo
-// de izquierda a derecha; cada círculo que golpea se enciende en amarillo. Con todos encendidos, acorde y vuelta a
-// negro. Si se escapa por abajo, vuelve a salir desde la pala. Sin marcador.
+// La espera: un minijuego sobre el mapa, uno cada vez (Pong y burbujas, por turnos). Mismo lienzo y mismo reloj.
+// Solo los colores de la app. Sin marcador. /debug pong | bobble | off los lanza a mano.
 const game = (() => {
   const cv = document.createElement('canvas'); cv.id = 'game'; document.body.appendChild(cv);
-  const g = cv.getContext('2d'), BALL = 6, SPEED = 5, TOP = 100, BOTTOM = 80, PW = 90, PH = 8;
+  const g = cv.getContext('2d'), TOP = 100, BOTTOM = 80;
   const Y = '#f2c94c', DARK = '#0f1115', EDGE = '#9aa0aa', TEXT = '#eceef2';
   const SPOTIFY = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>';
   const MENU = [ICON.explore, ICON.crown, ICON.play, ICON.next, ICON.trash, SPOTIFY];  // el menú del círculo, en su orden
@@ -190,83 +188,189 @@ const game = (() => {
     return i;
   };
   const icons = MENU.map(svg => ({ off: img(svg, TEXT), on: img(svg, DARK) }));
-  let wait = 0, frame = 0, circles = [], lit = [], ball, trail = [], spin = 0, hits = 0, last = 0, pad = 0;
-  const padY = () => innerHeight - BOTTOM - PH;
-  const clampPad = x => Math.max(PW / 2, Math.min(innerWidth - PW / 2, x));
-  function serve() {
-    const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
-    ball = { x: pad, y: padY() - BALL - 2, vx: SPEED * Math.cos(a), vy: SPEED * Math.sin(a) };
+  function disc(x, y, r, on, icon) {  // un círculo de la app: negro con borde gris, o amarillo encendido; con su icono
+    g.fillStyle = on ? Y : DARK; g.strokeStyle = on ? Y : EDGE; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.stroke();
+    const ic = icon && (on ? icon.on : icon.off);
+    if (ic && ic.complete) g.drawImage(ic, x - r * 0.6, y - r * 0.6, r * 1.2, r * 1.2);
   }
-  function reset() {
-    const dpr = devicePixelRatio || 1;
-    cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';  // 100vh en el móvil es más alto que lo visible
-    const area = innerHeight - TOP - BOTTOM, R = Math.min(innerWidth * 0.15, area * 0.14, 64), r = R * 0.42;
-    const cx = innerWidth / 2, cy = TOP + area * 0.36, ring = R + r + 14;
-    circles = [{ x: cx, y: cy, r: R }, ...MENU.map((_, i) => {  // menú en arco por debajo, de izquierda a derecha
-      const a = Math.PI / 2 + (2.5 - i) * 0.5;
-      return { x: cx + ring * Math.cos(a), y: cy + ring * Math.sin(a), r, icon: icons[i] };
-    })];
-    lit = circles.map(() => false); trail = []; hits = 0; pad = innerWidth / 2; serve();
-  }
-  function bounce() {
-    if (ball.x < BALL || ball.x > innerWidth - BALL) { ball.vx *= -1; ball.x = Math.max(BALL, Math.min(innerWidth - BALL, ball.x)); }
-    if (ball.y < TOP + BALL) { ball.vy = Math.abs(ball.vy); ball.y = TOP + BALL; }
-    const py = padY();
-    if (ball.vy > 0 && ball.y + BALL >= py && ball.y - BALL <= py + PH && Math.abs(ball.x - pad) <= PW / 2 + BALL) {
-      const off = (ball.x - pad) / (PW / 2);  // efecto según dónde pegue en la pala
-      ball.vx = SPEED * off * 0.85; ball.vy = -Math.sqrt(Math.max(1, SPEED * SPEED - ball.vx * ball.vx)); ball.y = py - BALL;
-      sfx.select();
+
+  // ---- Pong: el círculo con su menú en el centro; tu pala abajo sigue el dedo; lo que golpea la bola se enciende
+  const pong = (() => {
+    const BALL = 6, SPEED = 5, PW = 90, PH = 8;
+    let circles = [], lit = [], ball, trail = [], spin = 0, hits = 0, pad = 0;
+    const padY = () => innerHeight - BOTTOM - PH;
+    function serve() {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+      ball = { x: pad, y: padY() - BALL - 2, vx: SPEED * Math.cos(a), vy: SPEED * Math.sin(a) };
     }
-    if (ball.y > innerHeight - BOTTOM + 40) serve();  // se escapó por abajo
-    circles.forEach((c, i) => {
-      const dx = ball.x - c.x, dy = ball.y - c.y, d = Math.hypot(dx, dy);
-      if (d >= c.r + BALL || d === 0) return;
-      const nx = dx / d, ny = dy / d, dot = ball.vx * nx + ball.vy * ny;
-      if (dot < 0) { ball.vx -= 2 * dot * nx; ball.vy -= 2 * dot * ny; }  // rebote en la normal
-      ball.x = c.x + nx * (c.r + BALL); ball.y = c.y + ny * (c.r + BALL);
-      if (!lit[i]) {
-        lit[i] = true; sfx.join(hits++);
-        if (lit.every(Boolean)) { sfx.chord(); setTimeout(() => { lit = lit.map(() => false); }, 700); }
+    return {
+      name: 'pong',
+      reset() {
+        const area = innerHeight - TOP - BOTTOM, R = Math.min(innerWidth * 0.15, area * 0.14, 64), r = R * 0.42;
+        const cx = innerWidth / 2, cy = TOP + area * 0.36, ring = R + r + 14;
+        circles = [{ x: cx, y: cy, r: R }, ...MENU.map((_, i) => {  // menú en arco por debajo, de izquierda a derecha
+          const a = Math.PI / 2 + (2.5 - i) * 0.5;
+          return { x: cx + ring * Math.cos(a), y: cy + ring * Math.sin(a), r, icon: icons[i] };
+        })];
+        lit = circles.map(() => false); trail = []; hits = 0; pad = innerWidth / 2; serve();
+      },
+      step() {
+        ball.x += ball.vx; ball.y += ball.vy; spin += 0.07;
+        if (ball.x < BALL || ball.x > innerWidth - BALL) { ball.vx *= -1; ball.x = Math.max(BALL, Math.min(innerWidth - BALL, ball.x)); }
+        if (ball.y < TOP + BALL) { ball.vy = Math.abs(ball.vy); ball.y = TOP + BALL; }
+        const py = padY();
+        if (ball.vy > 0 && ball.y + BALL >= py && ball.y - BALL <= py + PH && Math.abs(ball.x - pad) <= PW / 2 + BALL) {
+          const off = (ball.x - pad) / (PW / 2);  // efecto según dónde pegue en la pala
+          ball.vx = SPEED * off * 0.85; ball.vy = -Math.sqrt(Math.max(1, SPEED * SPEED - ball.vx * ball.vx)); ball.y = py - BALL;
+          sfx.select();
+        }
+        if (ball.y > innerHeight - BOTTOM + 40) serve();  // se escapó por abajo
+        circles.forEach((c, i) => {
+          const dx = ball.x - c.x, dy = ball.y - c.y, d = Math.hypot(dx, dy);
+          if (d >= c.r + BALL || d === 0) return;
+          const nx = dx / d, ny = dy / d, dot = ball.vx * nx + ball.vy * ny;
+          if (dot < 0) { ball.vx -= 2 * dot * nx; ball.vy -= 2 * dot * ny; }  // rebote en la normal
+          ball.x = c.x + nx * (c.r + BALL); ball.y = c.y + ny * (c.r + BALL);
+          if (!lit[i]) {
+            lit[i] = true; sfx.join(hits++);
+            if (lit.every(Boolean)) { sfx.chord(); setTimeout(() => { lit = lit.map(() => false); }, 700); }
+          }
+        });
+        trail.unshift([ball.x, ball.y]); trail.length = Math.min(trail.length, 12);
+      },
+      draw() {
+        circles.forEach((c, i) => disc(c.x, c.y, c.r, lit[i], c.icon));
+        const big = circles[0];
+        g.strokeStyle = Y; g.lineWidth = 4; g.lineCap = 'round';  // la barra que gira: está cargando
+        g.beginPath(); g.arc(big.x, big.y, big.r + 9, spin, spin + 1.6); g.stroke();
+        g.fillStyle = Y; g.beginPath(); g.roundRect(pad - PW / 2, padY(), PW, PH, 4); g.fill();
+        trail.forEach(([x, y], i) => {  // estela que se apaga
+          g.globalAlpha = 0.5 * (1 - i / trail.length);
+          g.beginPath(); g.arc(x, y, BALL * (1 - i / trail.length / 2), 0, 7); g.fill();
+        });
+        g.globalAlpha = 1; g.beginPath(); g.arc(ball.x, ball.y, BALL, 0, 7); g.fill();
+      },
+      down(e) { this.move(e); }, up() {},
+      move(e) { pad = Math.max(PW / 2, Math.min(innerWidth - PW / 2, e.clientX)); },
+      paddle: () => pad, state: () => ({ circles, lit, ball }),
+    };
+  })();
+
+  // ---- Burbujas: un panal de iconos del menú; arrastra para apuntar y suelta para disparar; tres iguales explotan
+  const bobble = (() => {
+    const SPEED = 9, ROWS = 5;
+    let r, cols, rowH, grid, shot, next, flying, aim, pops, shots, flash;
+    const cells = row => cols - (row % 2);  // filas impares desplazadas: una menos
+    const cx = (row, c) => r + c * 2 * r + (row % 2 ? r : 0), cy = row => TOP + r + row * rowH;
+    const gun = () => [innerWidth / 2, innerHeight - BOTTOM - r - 6];
+    const at = (row, c) => (grid[row] || [])[c];
+    function neighbours(row, c) {
+      const s = row % 2 ? 1 : 0;
+      return [[row, c - 1], [row, c + 1], [row - 1, c - 1 + s], [row - 1, c + s], [row + 1, c - 1 + s], [row + 1, c + s]]
+        .filter(([y, x]) => y >= 0 && x >= 0 && x < cells(y));
+    }
+    function fill() {
+      grid = [];
+      for (let y = 0; y < ROWS; y++) grid.push(Array.from({ length: cells(y) }, () => Math.random() * MENU.length | 0));
+    }
+    const present = () => [...new Set(grid.flat().filter(t => t != null))];
+    const pick = () => { const p = present(); return p.length ? p[Math.random() * p.length | 0] : Math.random() * MENU.length | 0; };
+    function land() {  // la burbuja en vuelo se queda en el hueco libre más cercano
+      let best = null;
+      for (let y = 0; y <= grid.length; y++) for (let c = 0; c < cells(y); c++) {
+        if (at(y, c) != null) continue;
+        if (y > 0 && !neighbours(y, c).some(([a, b]) => at(a, b) != null)) continue;  // pegada a algo (o al techo)
+        const d = Math.hypot(cx(y, c) - flying.x, cy(y) - flying.y);
+        if (!best || d < best.d) best = { y, c, d };
       }
-    });
-  }
-  function draw() {
-    g.clearRect(0, 0, innerWidth, innerHeight);
-    circles.forEach((c, i) => {
-      g.fillStyle = lit[i] ? Y : DARK; g.strokeStyle = lit[i] ? Y : EDGE; g.lineWidth = 2;
-      g.beginPath(); g.arc(c.x, c.y, c.r, 0, 7); g.fill(); g.stroke();
-      const ic = c.icon && (lit[i] ? c.icon.on : c.icon.off);
-      if (ic && ic.complete) g.drawImage(ic, c.x - c.r * 0.6, c.y - c.r * 0.6, c.r * 1.2, c.r * 1.2);
-    });
-    const big = circles[0];
-    g.strokeStyle = Y; g.lineWidth = 4; g.lineCap = 'round';  // la barra que gira: está cargando
-    g.beginPath(); g.arc(big.x, big.y, big.r + 9, spin, spin + 1.6); g.stroke();
-    g.fillStyle = Y; g.beginPath(); g.roundRect(pad - PW / 2, padY(), PW, PH, 4); g.fill();
-    trail.forEach(([x, y], i) => {  // estela que se apaga
-      g.globalAlpha = 0.5 * (1 - i / trail.length);
-      g.beginPath(); g.arc(x, y, BALL * (1 - i / trail.length / 2), 0, 7); g.fill();
-    });
-    g.globalAlpha = 1; g.beginPath(); g.arc(ball.x, ball.y, BALL, 0, 7); g.fill();
-  }
+      flying = null;
+      if (!best) return;
+      while (grid.length <= best.y) grid.push(Array(cells(grid.length)).fill(null));
+      grid[best.y][best.c] = shot;
+      const same = [[best.y, best.c]], seen = new Set([best.y + ',' + best.c]);
+      for (let i = 0; i < same.length; i++) for (const [a, b] of neighbours(...same[i])) {
+        if (!seen.has(a + ',' + b) && at(a, b) === shot) { seen.add(a + ',' + b); same.push([a, b]); }
+      }
+      if (same.length >= 3) {
+        same.forEach(([a, b]) => { grid[a][b] = null; }); flash = same.map(([a, b]) => [cx(a, b), cy(a)]);
+        sfx.join(pops++);
+        const held = new Set(), todo = [];  // las que ya no cuelgan del techo caen
+        (grid[0] || []).forEach((t, c) => { if (t != null) { held.add('0,' + c); todo.push([0, c]); } });
+        for (let i = 0; i < todo.length; i++) for (const [a, b] of neighbours(...todo[i])) {
+          if (!held.has(a + ',' + b) && at(a, b) != null) { held.add(a + ',' + b); todo.push([a, b]); }
+        }
+        let fell = 0;
+        grid.forEach((row, a) => row.forEach((t, b) => { if (t != null && !held.has(a + ',' + b)) { row[b] = null; fell++; } }));
+        if (fell) sfx.chord();
+        if (!present().length) { sfx.chord(); fill(); }  // panal vacío: otro
+      } else sfx.select();
+      if (cy(best.y) + r > gun()[1] - 2 * r) { sfx.remove(); fill(); }  // llegó hasta el lanzador: de cero
+      shot = next; next = pick();
+    }
+    return {
+      name: 'bobble',
+      reset() {
+        r = Math.min(22, innerWidth / 18); cols = Math.floor(innerWidth / (2 * r)); rowH = r * Math.sqrt(3);
+        fill(); shot = pick(); next = pick(); flying = null; aim = null; pops = 0; shots = 0; flash = null;
+      },
+      step() {
+        if (!flying) return;
+        flying.x += flying.vx; flying.y += flying.vy;
+        if (flying.x < r || flying.x > innerWidth - r) { flying.vx *= -1; flying.x = Math.max(r, Math.min(innerWidth - r, flying.x)); }
+        const touching = flying.y <= TOP + r || grid.some((row, a) => row.some((t, b) => t != null && Math.hypot(cx(a, b) - flying.x, cy(a) - flying.y) < 2 * r * 0.85));
+        if (touching) land();
+      },
+      draw() {
+        grid.forEach((row, a) => row.forEach((t, b) => { if (t != null) disc(cx(a, b), cy(a), r - 1, false, icons[t]); }));
+        if (flash) { flash.forEach(([x, y]) => disc(x, y, r - 1, true)); flash = null; }  // destello de las que explotan
+        const [gx, gy] = gun();
+        if (aim && !flying) {  // línea de puntos hacia donde apuntas
+          g.fillStyle = Y;
+          for (let i = 1; i < 14; i++) { g.globalAlpha = 1 - i / 14; g.beginPath(); g.arc(gx + aim[0] * i * 18, gy + aim[1] * i * 18, 2.5, 0, 7); g.fill(); }
+          g.globalAlpha = 1;
+        }
+        if (flying) disc(flying.x, flying.y, r - 1, false, icons[shot]);
+        else disc(gx, gy, r - 1, false, icons[shot]);
+        g.strokeStyle = Y; g.lineWidth = 3; g.beginPath(); g.arc(gx, gy, r + 3, 0, 7); g.stroke();  // el lanzador
+        disc(gx + 3 * r, gy + r * 0.4, r * 0.6, false, icons[next]);  // la siguiente
+      },
+      down(e) { this.move(e); },
+      move(e) {
+        const [gx, gy] = gun(), dx = e.clientX - gx, dy = Math.min(-12, e.clientY - gy), d = Math.hypot(dx, dy);
+        aim = [dx / d, dy / d];
+      },
+      up() {
+        if (flying || !aim) return;
+        const [gx, gy] = gun();
+        flying = { x: gx, y: gy, vx: aim[0] * SPEED, vy: aim[1] * SPEED }; shots++; aim = null;
+      },
+      state: () => ({ count: grid.flat().filter(t => t != null).length, shots, flying: !!flying }),
+    };
+  })();
+
+  const games = { pong, bobble };
+  let cur = null, wait = 0, frame = 0, last = 0, turn = 0;
   function tick() {
     const now = performance.now(), steps = Math.min(60, Math.max(1, Math.round((now - last) / 16.7)));  // a tiempo real
     last = now;
-    for (let i = 0; i < steps; i++) {
-      ball.x += ball.vx; ball.y += ball.vy; bounce();
-      trail.unshift([ball.x, ball.y]); trail.length = Math.min(trail.length, 12);
-      spin += 0.07;
-    }
-    draw();
+    for (let i = 0; i < steps; i++) cur.step();
+    g.clearRect(0, 0, innerWidth, innerHeight); cur.draw();
   }
-  const follow = e => { e.preventDefault(); pad = clampPad(e.clientX); };
-  cv.addEventListener('pointerdown', follow);
-  cv.addEventListener('pointermove', follow);
+  const on = (type, fn) => cv.addEventListener(type, e => { e.preventDefault(); if (cur) fn(e); });
+  on('pointerdown', e => cur.down(e)); on('pointermove', e => cur.move(e)); on('pointerup', e => cur.up(e));
   return {
-    start() {
+    start(mode) {  // sin modo: por turnos; con modo (/debug): ya
       if (wait || frame) return;
-      // temporizador y no fotogramas: la física sigue aunque el navegador pinte poco
-      wait = setTimeout(() => { wait = 0; reset(); last = performance.now(); cv.className = 'on'; frame = setInterval(tick, 16); }, 300);
+      wait = setTimeout(() => {
+        wait = 0;
+        const dpr = devicePixelRatio || 1;
+        cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';  // 100vh en el móvil es más alto que lo visible
+        cur = games[mode] || (turn++ % 2 ? bobble : pong); cur.reset();
+        last = performance.now(); cv.className = 'on';
+        frame = setInterval(tick, 16);  // temporizador y no fotogramas: sigue aunque el navegador pinte poco
+      }, mode ? 0 : 300);
     },
     stop() {
       clearTimeout(wait); wait = 0;
@@ -274,7 +378,8 @@ const game = (() => {
       clearInterval(frame); frame = 0; cv.className = 'fade';
       setTimeout(() => { if (!frame) cv.className = ''; }, 450);
     },
-    playing: () => !!frame, paddle: () => pad, state: () => ({ circles, lit, ball }),
+    playing: () => !!frame, mode: () => frame && cur ? cur.name : null,
+    paddle: () => pong.paddle(), state: () => pong.state(), bubbles: () => bobble.state(),
   };
 })();
 function showBusy() {
@@ -807,13 +912,15 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
-  { usage: '/debug <b>pong</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(pong|off))?$/i, run: m => debugPong(!m[1] || m[1].toLowerCase() === 'pong') },
+  { usage: '/debug <b>pong</b>|<b>bobble</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(pong|bobble|bubbles|off))?$/i,
+    run: m => debugGame((m[1] || 'pong').toLowerCase().replace('bubbles', 'bobble')) },
 ];
-// /debug pong: lanza la espera (con su juego) hasta /debug off, para probarla sin tener que esperar a una carga
+// /debug pong|bobble: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
 let debugEnd = null;
-function debugPong(on) {
-  if (debugEnd) { debugEnd(); debugEnd = null; }
-  if (on) working(new Promise(r => { debugEnd = r; }));
+async function debugGame(mode) {
+  if (debugEnd) { debugEnd(); debugEnd = null; await new Promise(r => setTimeout(r, 0)); }  // que acabe la anterior
+  if (mode === 'off') return;
+  game.start(mode); working(new Promise(r => { debugEnd = r; }));
 }
 function showCommands(q) {
   const word = q.split(/\s+/)[0].toLowerCase();

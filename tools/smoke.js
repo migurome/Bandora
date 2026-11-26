@@ -34,18 +34,24 @@ setTimeout(async () => {
     ok('etiqueta solo con ratón', !touchTip && mouseTip);
     ok('spotify abre la app en android', spotifyUrl('Marea', 'Mozilla/5.0 (Linux; Android 12)') .startsWith('intent:search:Marea#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com%2Fsearch%2FMarea')
        && spotifyUrl('Marea', 'Mozilla/5.0 (Windows NT 10.0)') === 'https://open.spotify.com/search/Marea');
-    const wait = working(sleep(4000)); await sleep(700);
+    const wait = working(sleep(1500)); await sleep(700);
     const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
-    ok('espera: «searching» en la barra', bar.classList.contains('busy') && word && word.textContent === 'searching');
+    ok('espera: «searching» en la barra y un juego', bar.classList.contains('busy') && word && word.textContent === 'searching' && game.playing());
+    await wait; await sleep(700);
+    cmd('/debug pong'); await sleep(600);
     $('game').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 150, clientY: 400 }));
-    ok('espera: la pala sigue el dedo', game.playing() && game.paddle() === 150);
+    ok('pong: la pala sigue el dedo', game.mode() === 'pong' && game.paddle() === 150);
     const st = game.state(), c = st.circles[3];  // un botón del menú: se lanza la bola contra él
     Object.assign(st.ball, { x: c.x, y: c.y + c.r + 40, vx: 0, vy: -5 }); await sleep(800);
-    ok('espera: la bola enciende el botón que golpea', st.circles.length === 7 && game.state().lit[3]);
-    await wait; await sleep(800);
-    cmd('/debug pong'); await sleep(900); const dbgOn = game.playing();
+    ok('pong: la bola enciende el botón que golpea', st.circles.length === 7 && game.state().lit[3]);
+    cmd('/debug bobble'); await sleep(600);
+    const b0 = game.bubbles();
+    const shoot = (x, y) => ['pointerdown', 'pointermove', 'pointerup'].forEach(t => $('game').dispatchEvent(new PointerEvent(t, { bubbles: true, clientX: x, clientY: y })));
+    shoot(innerWidth / 2 + 30, 200); await sleep(1500);
+    const b1 = game.bubbles();
+    ok('burbujas: panal con iconos y disparo que se queda', game.mode() === 'bobble' && b0.count > 10 && b1.shots === 1 && !b1.flying && b1.count !== b0.count);
     cmd('/debug off'); await sleep(700);
-    ok('/debug pong lo lanza y /debug off lo para', dbgOn && !game.playing());
+    ok('/debug off lo para', !game.playing());
     ok('fin de espera: sin «searching» ni juego', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
