@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <!-- icono de Android (maskable): fondo a sangre y el dibujo dentro de la zona segura (círculo central del 80 %) -->
-  <rect width="128" height="128" fill="#0f1115"/>
+  <rect width="128" height="128" fill="#f2c94c"/>
   <g transform="translate(64 64) scale(0.62) translate(-64 -64)">
-    <g stroke="#f2c94c" stroke-width="6" stroke-linecap="round">
+    <g stroke="#0f1115" stroke-width="6" stroke-linecap="round">
       <path d="M47 64h37M45 56l41-25M45 72l41 25"/>
     </g>
-    <circle cx="34" cy="64" r="17" fill="#f2c94c"/>
-    <circle cx="96" cy="26" r="13" fill="#f2c94c"/>
-    <circle cx="96" cy="64" r="13" fill="#f2c94c"/>
-    <circle cx="96" cy="102" r="13" fill="#f2c94c"/>
+    <circle cx="34" cy="64" r="17" fill="#0f1115"/>
+    <circle cx="96" cy="26" r="13" fill="#0f1115"/>
+    <circle cx="96" cy="64" r="13" fill="#0f1115"/>
+    <circle cx="96" cy="102" r="13" fill="#0f1115"/>
   </g>
 </svg>
