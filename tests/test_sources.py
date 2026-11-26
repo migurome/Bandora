@@ -104,6 +104,11 @@ def binding(mbid, name, kind):
 
 
 class WikidataTest(unittest.TestCase):
+    def test_query_runs_in_written_order(self):
+        # sin la pista, Wikidata recorre cada rama del UNION entera antes de fijar la banda (>15 s)
+        from weave.sources import SYNERGY_QUERY
+        self.assertLess(SYNERGY_QUERY.index('hint:optimizer "None"'), SYNERGY_QUERY.index("UNION"))
+
     def test_wikidata_synergies_shape(self):
         f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-pla", "Platero y Tú", "member"),
                                                                          binding("mb-ext2", "Extrechinato y Tú", "member")]}}})

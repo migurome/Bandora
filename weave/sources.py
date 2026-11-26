@@ -100,6 +100,7 @@ class LastFm:
 
 # Sinergias por MBID (P434): miembros compartidos (P527 «tiene parte», P463 «miembro de») e influencias (P737)
 SYNERGY_QUERY = """SELECT DISTINCT ?otherMbid ?otherLabel ?kind WHERE {{
+  hint:Query hint:optimizer "None" .  # orden escrito: primero la banda; si no, >15 s
   ?band wdt:P434 "{mbid}" .
   {{ ?band wdt:P527 ?m . ?m wdt:P463 ?other . BIND("member" AS ?kind) }}
   UNION {{ ?m wdt:P463 ?band . ?m wdt:P463 ?other . BIND("member" AS ?kind) }}
