@@ -254,7 +254,7 @@ svg.call(zoom).on('dblclick.zoom', null);
 function radius(d) {
   const base = 7 + Math.min(14, Math.log10((d.fans || 0) + 10) * 2.2) + (d.origin ? 8 : 0);
   const r = Math.max(base + 6, 26);
-  return d.open ? r * 1.8 : r;  // ampliado con su menú
+  return d.hero ? r * 2 : d.open ? r * 1.8 : r;  // recién buscado: grande; ampliado con su menú
 }
 // Familias presentes en el mapa, en su orden fijo: [{name, color}]
 function presentFamilies() {
@@ -489,6 +489,7 @@ function fanAngles(n, count) {
 }
 async function expand(n) {
   if (n.loading) return;
+  unhero(n);
   select(n);
   n.loading = true; render();
   const a = await getArtist(n.id).catch(() => null);
@@ -582,9 +583,16 @@ let runId = 0;  // se incrementa para cancelar un camino en curso
 async function addOrigin(r) {
   const full = await working(getArtist(r.id).catch(() => null));
   if (!full) { flashError(); return; }
+  const isNew = !inMap(full);
   const n = addArtist(full, true);
+  if (isNew) {  // recién buscado: grande y fijo en el centro de la zona libre hasta que se despliegue o se busque otro
+    nodes.forEach(unhero);
+    const [cx, cy] = d3.zoomTransform(svg.node()).invert([innerWidth / 2, 110 + (innerHeight - 210) / 2]);
+    Object.assign(n, { hero: true, x: cx, y: cy, fx: cx, fy: cy });
+  }
   sfx.join(0); select(n);
 }
+function unhero(n) { if (n.hero) { n.hero = false; n.fx = n.fy = null; } }
 function clearMap() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); }
 // ✕ y /clear: mapa vacío y música parada
 function stopMusic() {

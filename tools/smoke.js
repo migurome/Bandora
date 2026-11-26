@@ -15,12 +15,15 @@ setTimeout(async () => {
     ok('busqueda', $('results').querySelectorAll('li').length > 0);
     $('results').querySelector('li').click(); await sleep(2500);
     ok('origen añadido', nodes.length === 1 && nodes[0].name === 'Marea' && nodes[0].selected);
+    const hero = nodes[0], [hx, hy] = d3.zoomTransform(document.getElementById('svg')).apply([hero.x, hero.y]);
+    ok('buscado grande y centrado', hero.hero && radius(hero) >= 50 && Math.abs(hx - innerWidth / 2) < 40);
     ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
     ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
     clk(nodeG('Marea')); await sleep(300);
     ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
+    ok('al desplegar vuelve a normal', !hero.hero && hero.fx == null);
     const tipOn = t => { nodeG('Marea').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: t, clientX: 50, clientY: 50 })); return $('tip').style.display === 'block'; };
     $('tip').style.display = 'none'; const touchTip = tipOn('touch'); const mouseTip = tipOn('mouse'); $('tip').style.display = 'none';
     ok('etiqueta solo con ratón', !touchTip && mouseTip);
