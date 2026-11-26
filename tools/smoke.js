@@ -36,12 +36,12 @@ setTimeout(async () => {
        && spotifyUrl('Marea', 'Mozilla/5.0 (Windows NT 10.0)') === 'https://open.spotify.com/search/Marea');
     const wait = working(sleep(3000)); await sleep(1900);
     const barBusy = document.querySelector('.ui .bar').classList.contains('busy'), smallLogo = $('busy').classList.contains('on');
-    const bub = document.querySelector('#game .bub');
-    if (bub) bub.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    const playing = game.playing(), d0 = game.dir();
+    $('game').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: innerWidth - 10, clientY: 300 }));
     ok('espera: barra animada sin logo pequeño', barBusy && !smallLogo);
-    ok('espera: minijuego de burbujas', !!bub && bub.classList.contains('pop'));
+    ok('espera: tron (tocar a la derecha gira)', playing && game.dir() === (d0 + 1) % 4);
     await wait; await sleep(800);
-    ok('fin de espera: barra quieta y sin burbujas', !document.querySelector('.ui .bar').classList.contains('busy') && !document.querySelector('#game .bub'));
+    ok('fin de espera: barra quieta y sin juego', !document.querySelector('.ui .bar').classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
     ok('play', !player.paused && document.querySelector('.node.playing'));
