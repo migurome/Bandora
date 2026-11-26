@@ -37,10 +37,11 @@ setTimeout(async () => {
     const wait = working(sleep(4000)); await sleep(700);
     const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
     ok('espera: «searching» en la barra', bar.classList.contains('busy') && word && word.textContent === 'searching');
-    const st = game.state(), big = st.circles[0];
-    $('game').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: big.x, clientY: big.y }));
-    await sleep(1500);
-    ok('espera: la bola enciende el círculo que golpea' + (game.state().lit.some(Boolean) ? '' : ' ' + JSON.stringify({ p: game.playing(), big, lit: game.state().lit, w: innerWidth, h: innerHeight })), game.playing() && st.circles.length === 4 && game.state().lit.some(Boolean));
+    $('game').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 150, clientY: 400 }));
+    ok('espera: la pala sigue el dedo', game.playing() && game.paddle() === 150);
+    const st = game.state(), c = st.circles[3];  // un botón del menú: se lanza la bola contra él
+    Object.assign(st.ball, { x: c.x, y: c.y + c.r + 40, vx: 0, vy: -5 }); await sleep(800);
+    ok('espera: la bola enciende el botón que golpea', st.circles.length === 7 && game.state().lit[3]);
     await wait; await sleep(800);
     cmd('/debug pong'); await sleep(900); const dbgOn = game.playing();
     cmd('/debug off'); await sleep(700);
