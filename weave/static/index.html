@@ -58,11 +58,11 @@ button:hover { background: #3a3f49; }
 #busy svg { width: 100%; height: 100%; }
 #busy.center { left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); }
 #busy.bar { top: 45px; right: 30px; width: 38px; height: 38px; }
-#busy .thread { stroke-dasharray: 26 14; animation: weave 1.2s linear infinite; }
-#busy .n { animation: beat 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-#busy .n:nth-of-type(2) { animation-delay: .15s; } #busy .n:nth-of-type(3) { animation-delay: .3s; }
-#busy .n:nth-of-type(4) { animation-delay: .45s; } #busy .n:nth-of-type(5) { animation-delay: .6s; }
-@keyframes weave { to { stroke-dashoffset: -40; } }
+/* el icono desplegándose: las ramas fluyen desde el centro y los relacionados laten en cadena */
+#busy .thread { stroke-dasharray: 10 8; animation: weave 1s linear infinite; }
+#busy .n { animation: beat 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+#busy .n:nth-of-type(3) { animation-delay: .2s; } #busy .n:nth-of-type(4) { animation-delay: .4s; }
+@keyframes weave { to { stroke-dashoffset: -18; } }
 @keyframes beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.25); } }
 @keyframes pulse { 50% { opacity: .3; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -119,15 +119,13 @@ button:hover { background: #3a3f49; }
 <div id="legend"></div>
 <div id="busy" role="status" aria-label="Cargando">
   <svg viewBox="0 0 128 128">
-    <g stroke-linecap="round" fill="none" stroke-width="5">
-      <line x1="22" y1="34" x2="43" y2="94" stroke="#a3c9f5"/><line x1="43" y1="94" x2="64" y2="50" stroke="#c9bbf6"/>
-      <line x1="64" y1="50" x2="85" y2="94" stroke="#b5e3a1"/><line x1="85" y1="94" x2="106" y2="34" stroke="#f5a3a3"/>
-      <path class="thread" d="M6 70 C 26 84, 40 64, 64 76 S 102 66, 122 78" stroke="#f2c94c" stroke-width="4.5"/>
+    <rect width="128" height="128" rx="28" fill="#f2c94c"/>
+    <g stroke="#0f1115" stroke-width="6" stroke-linecap="round" fill="none">
+      <path class="thread" d="M47 64h37"/><path class="thread" d="M45 56l41-25"/><path class="thread" d="M45 72l41 25"/>
     </g>
-    <g stroke="#0f1115" stroke-width="3">
-      <circle class="n" cx="22" cy="34" r="11" fill="#a3c9f5"/><circle class="n" cx="43" cy="94" r="11" fill="#c9bbf6"/>
-      <circle class="n" cx="64" cy="50" r="13" fill="#b5e3a1"/><circle class="n" cx="85" cy="94" r="11" fill="#f5a3a3"/>
-      <circle class="n" cx="106" cy="34" r="11" fill="#9de3d0"/>
+    <g fill="#0f1115">
+      <circle cx="34" cy="64" r="17"/>
+      <circle class="n" cx="96" cy="26" r="13"/><circle class="n" cx="96" cy="64" r="13"/><circle class="n" cx="96" cy="102" r="13"/>
     </g>
   </svg>
 </div>
