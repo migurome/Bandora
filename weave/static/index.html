@@ -80,6 +80,7 @@ button:hover { background: #3a3f49; }
 .node, .link { transition: opacity .25s; }
 .node.off { opacity: .07; pointer-events: none; }
 .link.off { opacity: .04; }
+.far .node text { display: none; }
 .node text { pointer-events: none; user-select: none; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .node .dot, .node clipPath circle { transition: r .2s; }
 .node .pic { transition: filter .3s; }
@@ -243,12 +244,24 @@ const root = svg.append('g');
 const gLinks = root.append('g'), gNodes = root.append('g');
 let k = 1;
 let wantFit = false, autoFit = false;  // autoFit: reencuadrar mientras se traza un camino, hasta que el usuario mueva el mapa
-const zoom = d3.zoom().scaleExtent([0.08, 4]).on('zoom', e => {
-  if (e.sourceEvent) autoFit = false;
-  root.attr('transform', e.transform);
-  k = e.transform.k;
-  gNodes.selectAll('text').attr('display', k < 0.6 ? 'none' : null);  // muy alejado, sin nombres
-});
+// En el móvil el pellizco manda más eventos que fotogramas: se pinta uno por fotograma, los nombres solo
+// cambian al cruzar el umbral y la simulación se pausa mientras dura el gesto (no redibuja dos veces).
+let zoomFrame = 0, simPaused = false;
+const zoom = d3.zoom().scaleExtent([0.08, 4])
+  .on('start', e => { if (e.sourceEvent && sim.alpha() > sim.alphaMin()) { sim.stop(); simPaused = true; } })
+  .on('zoom', e => {
+    if (e.sourceEvent) autoFit = false;
+    k = e.transform.k;
+    if (!e.sourceEvent) return paintZoom();  // programático (encuadre, pruebas): al momento
+    if (!zoomFrame) zoomFrame = requestAnimationFrame(paintZoom);
+  })
+  .on('end', () => { if (simPaused) { simPaused = false; sim.restart(); } });
+function paintZoom() {
+  zoomFrame = 0;
+  const t = d3.zoomTransform(svg.node());
+  root.attr('transform', t);
+  if (root.classed('far') !== t.k < 0.6) root.classed('far', t.k < 0.6);  // muy alejado, sin nombres
+}
 svg.call(zoom).on('dblclick.zoom', null);
 
 function radius(d) {
@@ -349,7 +362,7 @@ function render() {
     .attr('transform', d => `translate(0,${-radius(d) + 3}) scale(${Math.max(0.8, radius(d) / 40)})`);  // encima del círculo
   all.select('text').each(function (d) {
     const L = nameLines(d);
-    d3.select(this).style('font', L.font).attr('display', k < 0.6 ? 'none' : null)
+    d3.select(this).style('font', L.font)
       .selectAll('tspan').data(L.lines).join('tspan').attr('x', 0)
       // debajo del círculo; encima mientras está ampliado (el menú ocupa la parte de abajo)
       .attr('dy', (t, i) => i > 0 ? LINE_H : d.open ? -(radius(d) + (d.pinned ? 22 : 10)) - (L.lines.length - 1) * LINE_H : radius(d) + 16)

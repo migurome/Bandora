@@ -24,6 +24,11 @@ setTimeout(async () => {
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
     ok('al desplegar vuelve a normal', !hero.hero && hero.fx == null);
+    const svgSel = d3.select('#svg');
+    svgSel.call(zoom.transform, d3.zoomIdentity.scale(0.5)); await sleep(100);
+    const far = root.classed('far');
+    svgSel.call(zoom.transform, d3.zoomIdentity); await sleep(100);
+    ok('zoom: nombres por umbral', far && !root.classed('far'));
     const tipOn = t => { nodeG('Marea').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: t, clientX: 50, clientY: 50 })); return $('tip').style.display === 'block'; };
     $('tip').style.display = 'none'; const touchTip = tipOn('touch'); const mouseTip = tipOn('mouse'); $('tip').style.display = 'none';
     ok('etiqueta solo con ratón', !touchTip && mouseTip);
