@@ -24,9 +24,11 @@ def main() -> int:
         print(f"El servidor no responde en {URL}: arráncalo con  python -m weave.server")
         return 2
     page = PAGE.read_text(encoding="utf-8")
-    cut = page.rindex("render();\n</script>")  # la prueba sustituye a la llamada final de arranque
-    TEMP.write_text(page[:cut] + (Path(__file__).parent / "smoke.js").read_text(encoding="utf-8")
-                    + "\n</script>" + page[cut + len("render();\n</script>"):], encoding="utf-8")
+    # la prueba sustituye al arranque final (render y service worker, que con tiempo virtual no arranca)
+    cut = page.rindex("render();\n")
+    end = page.index("</script>", cut)
+    TEMP.write_text(page[:cut] + (Path(__file__).parent / "smoke.js").read_text(encoding="utf-8") + "\n" + page[end:],
+                    encoding="utf-8")
     try:
         out = subprocess.run([str(EDGE), "--headless=new", "--disable-gpu", "--autoplay-policy=no-user-gesture-required",
                               "--virtual-time-budget=120000", "--dump-dom", f"{URL}/{TEMP.name}"],

@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0f1115">
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="d3.min.js"></script>
 <script src="data.js"></script>
 <style>
 :root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
@@ -633,7 +633,8 @@ function spotifyUrl(name, ua = navigator.userAgent) {
   if (!/Android/i.test(ua)) return web;
   return `intent:search:${encodeURIComponent(name)}#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=${encodeURIComponent(web)};end`;
 }
-const OPT_GAP = 44;  // px entre centros de botón (cada botón mide 34)
+const TOUCH = matchMedia('(pointer: coarse)').matches;  // con el dedo, botones de 44 px
+const OPT_R = TOUCH ? 22 : 17, OPT_GAP = TOUCH ? 54 : 44;  // radio y px entre centros de botón
 const OPTS = [  // arco por debajo, de izquierda a derecha
   { key: 'expand', primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
     off: d => !canExpand(d), run: d => canExpand(d) && expand(d) },
@@ -652,7 +653,7 @@ function renderMenus(all) {
         .on('click', (ev, o) => { ev.stopPropagation(); o.run(o.d); });
       g.filter(o => o.key === 'expand').call(connectDrag);  // del botón amarillo sale la línea de unión
       const pop = g.append('g').attr('class', 'pop');
-      pop.append('circle').attr('class', 'bg').attr('r', 17);
+      pop.append('circle').attr('class', 'bg').attr('r', OPT_R);
       pop.append('g').attr('class', 'ico');
       return g;
     })
@@ -1002,6 +1003,7 @@ document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionad
   }
 })();
 render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});  // instalable y sin conexión
 </script>
 </body>
 </html>
