@@ -409,6 +409,12 @@ function clickNode(d) {
 function closeAll() { nodes.forEach(m => { m.selected = false; m.open = false; }); selId = null; render(); }
 
 const canExpand = d => degree(d) < MAX_LINKS && !d.loading;
+// En Android abre la app de Spotify con la búsqueda; sin la app, Chrome va a la web (browser_fallback_url)
+function spotifyUrl(name, ua = navigator.userAgent) {
+  const web = 'https://open.spotify.com/search/' + encodeURIComponent(name);
+  if (!/Android/i.test(ua)) return web;
+  return `intent:search:${encodeURIComponent(name)}#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+}
 const OPT_GAP = 44;  // px entre centros de botón (cada botón mide 34)
 const OPTS = [  // arco por debajo, de izquierda a derecha
   { key: 'expand', primary: true, label: 'Desplegar relacionadas', icon: () => ICON.explore,
@@ -419,7 +425,7 @@ const OPTS = [  // arco por debajo, de izquierda a derecha
   { key: 'next', label: 'Siguiente canción', icon: () => ICON.next, run: d => load(d.id, queue.id === d.id ? queue.i + 1 : 0, true) },
   { key: 'remove', label: 'Quitar del mapa', icon: () => ICON.trash, run: d => removeNode(d) },
   { key: 'spotify', label: 'Spotify', icon: () => ICON.spotify,
-    run: d => window.open('https://open.spotify.com/search/' + encodeURIComponent(d.name), '_blank', 'noopener') },
+    run: d => { const u = spotifyUrl(d.name); if (u.startsWith('intent:')) location.href = u; else window.open(u, '_blank', 'noopener'); } },
 ];
 function renderMenus(all) {
   all.selectAll('g.opt').data(d => d.open ? OPTS.map(o => ({ ...o, d })) : [], o => o.key)
