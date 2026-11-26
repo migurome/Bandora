@@ -91,11 +91,21 @@ Criterios comprobados: Extremoduro sale unida en lila con Platero y Tú, Extrech
 1.647 parejas con miembros en común que no salían como parecidas. Las colaboraciones quedan fuera.
 Alternativa si Wikidata falla: relaciones «miembro de» de MusicBrainz (sin influencias).
 
-### Fase 3 · Explorador definitivo
+### Fase 3 · App de móvil — ✅ hecha (26/11/2026), pendiente de publicar
 
-**Objetivo:** pulir la aplicación sobre la base ya integrada.
+App sola en el móvil (decisión del usuario: para usarla él, instalada desde el navegador). `python -m weave.export`
+vuelca la base de datos a `weave/static/data/weave.json` (42.766 artistas, 4,0 MB; 1,5 MB comprimido); la página
+busca, abre fichas, despliega y traza caminos en el navegador, sin `/api`. Con red, Deezer en vivo por JSONP:
+canciones, artistas que no están en los datos y relacionadas de quien no las tiene. Service worker: app, D3 local,
+datos y fotos vistas sin conexión. Interfaz táctil: botones de 44 px, Spotify abre la app en Android, unir con el
+dedo, artista buscado grande y centrado, zoom fluido. Esperas: «searching» y minijuegos (Pong, burbujas).
+Publicar: `python -I tools/publish.py <remoto>` (GitHub Pages).
+Plan: `docs/superpowers/plans/2026-11-26-fase3-app-movil.md`.
 
-- Funcionar sin internet para lo ya visto (D3 incluido en el proyecto, no desde CDN; fotos en caché).
+Pendiente: crear el repositorio de GitHub y publicar (lo decide el usuario).
+
+### Fase 3b · Explorador definitivo
+
 - Deshacer, guardar y recuperar mapas en local.
 - Rendimiento con cientos de bandas (valorar canvas si SVG no aguanta).
 - Ampliar la prueba de humo (`tools/smoke.py`) con cada comportamiento nuevo.

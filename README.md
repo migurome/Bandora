@@ -1,7 +1,8 @@
-# Weave Bands
+# Weave bands
 
 Explorador visual de música: escribes un artista, aparece su círculo y la red de grupos relacionados va
-creciendo a tu alrededor. Todo en local.
+creciendo a tu alrededor. Es una app de móvil (se instala desde el navegador) que funciona sola: los datos van
+dentro y sirven sin conexión; con red suena la música y se pueden añadir artistas nuevos desde Deezer.
 
 ## Arrancar
 
@@ -9,7 +10,16 @@ creciendo a tu alrededor. Todo en local.
 python -m weave.server          # http://localhost:8766
 ```
 
-Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para lo que aún no esté en la base de datos.
+Requisitos: Python 3.12 (solo librería estándar). La página lee `weave/static/data/weave.json`: genéralo antes con
+`python -m weave.export` (y cada vez que crezca la base de datos).
+
+## En el móvil
+
+1. Publicar: `python -I tools/publish.py <remoto de GitHub>` exporta y sube la app a la rama `gh-pages`; en GitHub,
+   Settings → Pages → rama `gh-pages`. Queda en `https://<usuario>.github.io/<repositorio>/` (el repositorio de
+   Pages gratuito es público: cualquiera con el enlace ve la red de artistas; nada personal).
+2. Instalar: abrir esa dirección en Chrome del móvil → ⋮ → «Instalar app».
+3. Sin conexión funciona con los últimos datos descargados; al abrirla con red recoge los nuevos.
 
 ## Uso
 
@@ -26,6 +36,8 @@ Requisitos: Python 3.12 (solo librería estándar) y conexión a internet para l
 | Camino entre artistas | `/from Marea to Michael Jackson` (Tab completa los nombres) |
 | Leyenda y filtro de géneros | `/label on` · `/label off` |
 | Limpiar mapa y parar música | `/clear` o ✕ (dos veces si hay favoritas) |
+| Esperas | «searching» en la barra y un minijuego (Pong o burbujas, por turnos) |
+| Probar los minijuegos | `/debug pong` · `/debug bobble` · `/debug off` (o `?debug=bobble` en la dirección) |
 
 ## Base de datos de artistas
 
@@ -44,6 +56,7 @@ python -m weave.ingest status
 ```bash
 python -m unittest discover -s tests -t . -v   # unitarias (sin red)
 python -I tools/smoke.py                        # interfaz en Edge sin ventana (servidor arrancado)
+python -I tools/pwa.py                          # instalable y sin conexión (servidor arrancado)
 ```
 
 ## Estructura
