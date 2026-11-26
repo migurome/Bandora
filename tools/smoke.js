@@ -21,6 +21,9 @@ setTimeout(async () => {
     ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
+    const tipOn = t => { nodeG('Marea').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: t, clientX: 50, clientY: 50 })); return $('tip').style.display === 'block'; };
+    $('tip').style.display = 'none'; const touchTip = tipOn('touch'); const mouseTip = tipOn('mouse'); $('tip').style.display = 'none';
+    ok('etiqueta solo con ratón', !touchTip && mouseTip);
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
     ok('play', !player.paused && document.querySelector('.node.playing'));

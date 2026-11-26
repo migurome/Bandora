@@ -311,7 +311,8 @@ function render() {
   n.exit().remove();
   const e = n.enter().append('g')
     .on('click', (ev, d) => { ev.stopPropagation(); autoFit = false; clickNode(d); })
-    .on('mousemove', (ev, d) => showTip(ev, d)).on('mouseleave', () => $('tip').style.display = 'none')
+    .on('pointermove', (ev, d) => ev.pointerType === 'mouse' && showTip(ev, d))  // en táctil no hay «salir»: se quedaría fija
+    .on('pointerleave', () => $('tip').style.display = 'none')
     .call(d3.drag()  // arrastrar el círculo lo mueve (los botones del menú no)
       .filter(ev => !ev.button && !ev.target.closest('.opt'))
       .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
