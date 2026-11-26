@@ -41,6 +41,7 @@ button:hover { background: #3a3f49; }
 #results img { width: 32px; height: 32px; border-radius: 50%; }
 #results li.cmd { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--muted); }
 #results li.cmd b { color: var(--accent); font-weight: 600; }
+#results li a { color: var(--accent); text-decoration: none; flex: 1; }
 
 /* Pie: play/pausa y limpiar */
 #foot { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2; }
@@ -1068,6 +1069,7 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
+  { usage: '/help', fill: '/help', re: /^\/(help|ayuda|\?)$/i, run: () => showHelp() },
   { usage: '/undo', fill: '/undo', re: /^\/undo$/i, run: () => undo() },
   { usage: '/save <b>nombre</b>', fill: '/save ', re: /^\/save\s+(.+)$/i, run: m => saveMap(m[1].trim()) },
   { usage: '/load <b>nombre</b>', fill: '/load ', re: /^\/load\s+(.+)$/i, run: m => loadMap(m[1].trim()) },
@@ -1092,6 +1094,10 @@ function showCommands(q) {
   $('results').querySelectorAll('li').forEach(li => li.onclick = () => {
     $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
   });
+}
+function showHelp() {  // todos los comandos (tocar uno lo escribe en la barra) y la página que lo explica todo
+  showCommands('/');
+  $('results').insertAdjacentHTML('beforeend', '<li class="cmd"><a href="ayuda.html">cómo funciona ›</a></li>');
 }
 function suggestMaps(q) {  // /load: los mapas guardados que empiezan por lo escrito
   const names = Object.keys(savedMaps()).filter(m => norm(m).startsWith(norm(q))).sort();

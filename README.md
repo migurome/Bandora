@@ -38,6 +38,7 @@ Requisitos: Python 3.12 (solo librería estándar). La página lee `weave/static
 | Limpiar mapa y parar música | `/clear` o ✕ (dos veces si hay favoritas) |
 | Deshacer el último cambio del mapa | `/undo` o Ctrl+Z |
 | Guardar y recuperar mapas (en el móvil, sin conexión) | `/save nombre` · `/load nombre` |
+| Lista de comandos y enlace a la ayuda (`ayuda.html`) | `/help` |
 | Esperas | «searching» en la barra y un minijuego (Pong o burbujas, por turnos) |
 | Probar los minijuegos | `/debug pong` · `/debug bobble` · `/debug off` (o `?debug=bobble` en la dirección) |
 

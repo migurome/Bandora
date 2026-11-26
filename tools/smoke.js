@@ -108,6 +108,10 @@ setTimeout(async () => {
     window.dispatchEvent(new MouseEvent('mousemove', { ...p0, clientX: p0.clientX + 60 }));
     window.dispatchEvent(new MouseEvent('mouseup', { ...p0, clientX: p0.clientX + 60 })); await sleep(200);
     ok('arrastrar mueve el círculo', mj.x > x0 + 20 && links.length === nLinks);
+    cmd('/help'); await sleep(200);
+    { const items = [...$('results').querySelectorAll('li')];
+      ok('/help lista los comandos y enlaza la ayuda', items.some(li => li.textContent.startsWith('/undo')) && !!$('results').querySelector('a[href="ayuda.html"]')); }
+    $('results').innerHTML = '';
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length >= 3 && links.every(l => l.path));  // la longitud depende de los datos
