@@ -800,7 +800,7 @@ function fanAngles(n, count) {
 }
 async function expand(n) {
   if (n.loading) return;
-  unhero(n);
+  remember(); unhero(n);
   select(n);
   n.loading = true; render();
   const a = await getArtist(n.id).catch(() => null);
@@ -831,6 +831,7 @@ async function expand(n) {
 // Quita una banda y las que solo llegaban al mapa a través de ella (las que siguen unidas a un origen se quedan)
 function removeNode(n) {
   if (!byId.has(n.id)) return;
+  remember();
   const rest = nodes.filter(m => m !== n);
   const restLinks = links.filter(l => !ends(l).includes(n.id));
   const adj = new Map(rest.map(m => [m.id, []]));
@@ -897,6 +898,7 @@ async function addOrigin(r) {
   const full = await working(getArtist(r.id).catch(() => null));
   if (!full) { flashError(); return; }
   const isNew = !inMap(full);
+  if (isNew) remember();
   const n = addArtist(full, true);
   if (isNew) {  // recién buscado: grande y fijo en el centro de la zona libre hasta que se despliegue o se busque otro
     nodes.forEach(unhero);
@@ -907,6 +909,50 @@ async function addOrigin(r) {
 }
 function unhero(n) { if (n.hero) { n.hero = false; n.fx = n.fy = null; } }
 function clearMap() { nodes.length = links.length = 0; byId.clear(); byName.clear(); selId = null; render(); }
+// ---------- Deshacer y mapas guardados: el mapa entero cabe en un JSON pequeño (sin pedir nada a la red al volver) ----------
+const FIELDS = ['id', 'name', 'fans', 'sub', 'genre', 'color', 'order', 'picture', 'origin', 'pinned', 'exhausted'];
+function snapshot() {
+  return JSON.stringify({
+    nodes: nodes.map(n => ({ ...Object.fromEntries(FIELDS.map(f => [f, n[f]])), x: Math.round(n.x), y: Math.round(n.y), parent: n.parent?.id })),
+    links: links.map(l => { const [s, t] = ends(l); return { s, t, path: l.path, kind: l.kind }; }),
+  });
+}
+function restore(json) {
+  const snap = JSON.parse(json);
+  runId++;  // corta un camino a medio tejer
+  nodes.splice(0, nodes.length, ...snap.nodes.map(({ parent, ...n }) => n));
+  byId.clear(); byName.clear(); nodes.forEach(m => { byId.set(m.id, m); byName.set(key(m), m); });
+  snap.nodes.forEach(({ id, parent }) => { if (byId.has(parent)) byId.get(id).parent = byId.get(parent); });
+  links.splice(0, links.length, ...snap.links.filter(l => byId.has(l.s) && byId.has(l.t))
+    .map(l => ({ source: byId.get(l.s), target: byId.get(l.t), path: l.path, kind: l.kind })));
+  selId = null;
+  if (queue.id != null && !byId.has(queue.id)) stopMusic();
+  $('tip').style.display = 'none';
+  render(); wantFit = true;
+}
+const undoStack = [];
+function remember() {  // antes de cada cambio del mapa
+  const s = snapshot();
+  if (undoStack.at(-1) !== s) undoStack.push(s);
+  if (undoStack.length > 40) undoStack.shift();
+}
+function undo() {
+  const now = snapshot();
+  while (undoStack.length && undoStack.at(-1) === now) undoStack.pop();  // los cambios que no cambiaron nada no cuentan
+  if (!undoStack.length) return flashError();
+  restore(undoStack.pop()); sfx.remove();
+}
+const savedMaps = () => JSON.parse(localStorage.getItem('weave-maps') || '{}');
+function saveMap(name) {
+  if (!nodes.length) return flashError();
+  const maps = savedMaps(); maps[name] = snapshot();
+  localStorage.setItem('weave-maps', JSON.stringify(maps)); sfx.chord();
+}
+function loadMap(name) {
+  const maps = savedMaps(), k = Object.keys(maps).find(m => norm(m) === norm(name));
+  if (!k) return flashError();
+  remember(); restore(maps[k]); sfx.chord();
+}
 // ✕ y /clear: mapa vacío y música parada
 function stopMusic() {
   playToken++;
@@ -915,7 +961,7 @@ function stopMusic() {
 }
 // ✕ y /clear: si hay coronas, quedan solo las favoritas; si ya solo hay favoritas (o ninguna), se borra todo
 function clearEverything() {
-  runId++;
+  remember(); runId++;
   const pinned = nodes.filter(n => n.pinned);
   if (pinned.length && pinned.length < nodes.length) {
     const ids = new Set(pinned.map(n => n.id));
@@ -955,7 +1001,7 @@ async function weavePath(a, b, run, place) {
 }
 // /from A to B: mapa nuevo con la cadena en fila
 async function tracePath(a, b) {
-  const run = ++runId;
+  remember(); const run = ++runId;
   clearMap(); autoFit = true; showBusy();
   await weavePath(a, b, run, (i, total) => ({ x: innerWidth * 0.12 + innerWidth * 0.6 * i / Math.max(1, total - 1), y: innerHeight / 2 + (i % 2 ? 40 : -40) }));
   autoFit = false;
@@ -963,7 +1009,7 @@ async function tracePath(a, b) {
 // Conector: el camino se teje dentro del mapa actual, entre los dos círculos
 // Conector: el camino se teje dentro del mapa actual, entre los dos círculos
 function connectPath(a, b) {
-  const run = ++runId;
+  remember(); const run = ++runId;
   return working(weavePath(a, b, run, (i, total, prev) => {
     const t = i / Math.max(1, total - 1), jitter = (i % 2 ? 1 : -1) * 50;  // en la recta entre los dos, en zigzag
     return { x: a.x + (b.x - a.x) * t + jitter, y: a.y + (b.y - a.y) * t - jitter };
@@ -1022,6 +1068,9 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
+  { usage: '/undo', fill: '/undo', re: /^\/undo$/i, run: () => undo() },
+  { usage: '/save <b>nombre</b>', fill: '/save ', re: /^\/save\s+(.+)$/i, run: m => saveMap(m[1].trim()) },
+  { usage: '/load <b>nombre</b>', fill: '/load ', re: /^\/load\s+(.+)$/i, run: m => loadMap(m[1].trim()) },
   { usage: '/debug <b>pong</b>|<b>bobble</b>|<b>off</b>', fill: '/debug ', re: /^\/debug(?:\s+(\w+))?$/i,
     run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
       const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'off'].find(x => x.startsWith(w));
@@ -1044,6 +1093,11 @@ function showCommands(q) {
     $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
   });
 }
+function suggestMaps(q) {  // /load: los mapas guardados que empiezan por lo escrito
+  const names = Object.keys(savedMaps()).filter(m => norm(m).startsWith(norm(q))).sort();
+  $('results').innerHTML = names.map(m => `<li class="cmd" tabindex="0">${esc(m)}</li>`).join('');
+  $('results').querySelectorAll('li').forEach((li, i) => li.onclick = () => { $('q').value = ''; $('results').innerHTML = ''; loadMap(names[i]); });
+}
 function runCommand(v) {
   for (const c of COMMANDS) {
     const m = v.match(c.re);
@@ -1057,6 +1111,7 @@ $('q').addEventListener('input', e => {
   clearTimeout(timer);
   const q = e.target.value.replace(/^\s+/, '');
   if (/^\/from\s/i.test(q)) return suggestFrom(q);
+  if (/^\/load\s/i.test(q)) return suggestMaps(q.slice(5).trim());
   if (q.startsWith('/')) return showCommands(q.trim());
   if (q.trim().length < 2) { $('results').innerHTML = ''; return; }
   timer = setTimeout(async () => {
@@ -1086,6 +1141,7 @@ $('clear').innerHTML = ICON.clear;
 $('clear').onclick = clearEverything;
 svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
 document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionada
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.target.tagName !== 'INPUT') { e.preventDefault(); return undo(); }
   if (e.key !== 'Delete' || e.target.tagName === 'INPUT') return;
   const sel = byId.get(selId);
   if (sel) removeNode(sel);

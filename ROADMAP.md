@@ -15,7 +15,7 @@ Validado por el usuario en noviembre de 2026 sobre la prueba de concepto, ya int
 
 | Comportamiento | Detalle |
 |---|---|
-| Barra = terminal | Texto normal busca artistas (Intro añade el primer resultado); comandos con `/`: `/from A to B`, `/label on\|off`, `/clear`. Al escribir `/` se listan. Error = la barra tiembla en rojo, sin mensajes |
+| Barra = terminal | Texto normal busca artistas (Intro añade el primer resultado); comandos con `/`: `/from A to B`, `/label on\|off`, `/clear`, `/undo`, `/save`, `/load`. Al escribir `/` se listan. Error = la barra tiembla en rojo, sin mensajes |
 | Autocompletado en comandos | En `/from` se sugieren artistas para A y para B; Tab, clic o Enter completan el nombre exacto |
 | Círculo = foto del artista | Recorte circular con aro del color de su familia de género; nombre debajo |
 | Clic | Un clic abre el círculo (ampliado, con menú en semicírculo por debajo); otro clic lo cierra. Sin doble clic |
@@ -106,7 +106,7 @@ Pendiente: crear el repositorio de GitHub y publicar (lo decide el usuario).
 
 ### Fase 3b · Explorador definitivo
 
-- Deshacer, guardar y recuperar mapas en local.
+- ~~Deshacer, guardar y recuperar mapas en local~~ (hecho: `/undo`, `/save`, `/load`).
 - Rendimiento con cientos de bandas (valorar canvas si SVG no aguanta).
 - Ampliar la prueba de humo (`tools/smoke.py`) con cada comportamiento nuevo.
 
