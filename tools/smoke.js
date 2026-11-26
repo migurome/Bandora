@@ -63,6 +63,16 @@ setTimeout(async () => {
     closeAll(); clk(nodeG('Marea')); await sleep(400);
     const at = el => { const r = el.getBoundingClientRect(); return { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, view: window }; };
     const from = at(opt('expand').querySelector('.bg')), to = at(nodeG('Michael Jackson').querySelector('.dot'));
+    // con el dedo (eventos táctiles): se prueba sin tejer el camino, solo que encuentra el destino
+    const realConnect = connectPath; let hit = null; connectPath = (a, b) => { hit = [a.name, b.name]; };
+    const tch = p => [new Touch({ identifier: 7, target: opt('expand'), clientX: p.clientX, clientY: p.clientY })];
+    const tev = (type, p) => opt('expand').dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true,
+      touches: type === 'touchend' ? [] : tch(p), targetTouches: type === 'touchend' ? [] : tch(p), changedTouches: tch(p) }));
+    tev('touchstart', from); tev('touchmove', { clientX: from.clientX + 20, clientY: from.clientY }); tev('touchmove', to);
+    const wire = gWire.select('line'), wireOk = !wire.empty() && isFinite(+wire.attr('x2'));
+    tev('touchend', to); connectPath = realConnect;
+    ok('conectar con el dedo', wireOk && hit && hit[0] === 'Marea' && hit[1] === 'Michael Jackson');
+    closeAll(); clk(nodeG('Marea')); await sleep(900);  // tras un toque, d3 ignora el ratón 500 ms
     opt('expand').dispatchEvent(new MouseEvent('mousedown', { ...from, button: 0 }));
     window.dispatchEvent(new MouseEvent('mousemove', { ...from, clientX: from.clientX + 20 }));
     window.dispatchEvent(new MouseEvent('mousemove', to));

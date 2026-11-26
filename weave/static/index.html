@@ -473,20 +473,19 @@ function renderMenus(all) {
 // ---------- Conectar: arrastrar desde el botón de desplegar hasta otro círculo teje el camino entre los dos ----------
 const gWire = root.append('g');
 const nodeAt = p => nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) <= radius(n));
+// ev.x / ev.y (en coordenadas del mapa) valen para ratón y dedo; d3.pointer(sourceEvent) no sabe leer un toque
 const connectDrag = d3.drag()  // se arrastra desde el botón de desplegar; un clic sin arrastrar sigue desplegando
   .filter(ev => !ev.button)
+  .container(() => root.node())
+  .subject((ev, o) => ({ d: o.d, x: ev.x, y: ev.y }))
   .on('start', ev => {
     ev.sourceEvent.stopPropagation();  // ni mover el círculo ni el mapa
-    const [x, y] = d3.pointer(ev.sourceEvent, root.node());
-    gWire.append('line').attr('class', 'wire').attr('x1', x).attr('y1', y).attr('x2', x).attr('y2', y);
+    gWire.append('line').attr('class', 'wire').attr('x1', ev.x).attr('y1', ev.y).attr('x2', ev.x).attr('y2', ev.y);
   })
-  .on('drag', ev => {
-    const [x, y] = d3.pointer(ev.sourceEvent, root.node());
-    gWire.select('line').attr('x2', x).attr('y2', y);
-  })
+  .on('drag', ev => gWire.select('line').attr('x2', ev.x).attr('y2', ev.y))
   .on('end', ev => {
     gWire.selectAll('line').remove();
-    const a = ev.subject.d, b = nodeAt(d3.pointer(ev.sourceEvent, root.node()));
+    const a = ev.subject.d, b = nodeAt([ev.x, ev.y]);
     if (!b || b === a) return;  // soltado en el vacío o en sí mismo: no hace nada
     sfx.select(); connectPath(a, b);
   });
