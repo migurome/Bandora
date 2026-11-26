@@ -1,4 +1,4 @@
-"""Conexión SQLite y esquema (versión 3: relation.weight, artist.lastfm_at y artist.wikidata_at)."""
+"""Conexión SQLite y esquema (versión 3: relation.weight, artist.lastfm_at y artist.wikidata_at; 4: alias con conjunciones unificadas)."""
 import sqlite3
 from pathlib import Path
 
@@ -44,4 +44,7 @@ def _migrate(conn):
         conn.execute("ALTER TABLE artist ADD COLUMN lastfm_at TEXT")
     if "wikidata_at" not in cols("artist"):
         conn.execute("ALTER TABLE artist ADD COLUMN wikidata_at TEXT")
-    conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', '3')")
+    if int(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]) < 4:
+        from .store import renormalize
+        renormalize(conn)  # una vez: claves de alias con la norm nueva y fusión de los gemelos que salgan
+    conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', '4')")

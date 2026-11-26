@@ -51,7 +51,8 @@ class Deezer:
 
     def search(self, q, limit=10) -> list[dict]:
         res = self._get(f"/search/artist?limit={limit}&q=" + urllib.parse.quote(q)).get("data", [])
-        return [{"id": a["id"], "name": a["name"], "fans": a.get("nb_fan", 0), "picture": a.get("picture_small")} for a in res]
+        return [{"id": a["id"], "name": a["name"], "fans": a.get("nb_fan", 0), "picture": a.get("picture_small"),
+                 "albums": a.get("nb_album", 1)} for a in res]
 
 
 class MusicBrainz:
@@ -99,7 +100,7 @@ class LastFm:
 
 
 # Sinergias por MBID (P434): miembros compartidos (P527 «tiene parte», P463 «miembro de») e influencias (P737)
-SYNERGY_QUERY = """SELECT DISTINCT ?otherMbid ?otherLabel ?kind WHERE {{
+SYNERGY_QUERY = """SELECT DISTINCT ?otherMbid ?otherLabel ?kind ?nick WHERE {{
   hint:Query hint:optimizer "None" .  # orden escrito: primero la banda; si no, >15 s
   ?band wdt:P434 "{mbid}" .
   {{ ?band wdt:P527 ?m . ?m wdt:P463 ?other . BIND("member" AS ?kind) }}
@@ -110,8 +111,9 @@ SYNERGY_QUERY = """SELECT DISTINCT ?otherMbid ?otherLabel ?kind WHERE {{
   UNION {{ ?other wdt:P737 ?band . BIND("influence" AS ?kind) }}
   FILTER(?other != ?band)
   ?other wdt:P434 ?otherMbid .
+  OPTIONAL {{ ?other wdt:P1449 ?nick . }}  # apodo: el nombre artístico con el que publica («Uoho» es Iñaki Antón)
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "es,en". }}
-}} LIMIT 60"""
+}} LIMIT 120"""
 
 
 class Wikidata:
@@ -126,6 +128,9 @@ class Wikidata:
             other, kind = r["otherMbid"]["value"], r["kind"]["value"]
             if other == mbid:
                 continue
-            if other not in out or kind == "member":  # si sale por los dos motivos, gana «miembro»
-                out[other] = {"mbid": other, "name": r["otherLabel"]["value"], "kind": kind}
+            name, nick = r["otherLabel"]["value"], r.get("nick", {}).get("value")
+            if other not in out or (kind == "member" and out[other]["kind"] != "member"):  # por los dos motivos, gana «miembro»
+                out[other] = {"mbid": other, "name": name, "names": [name], "kind": kind}
+            if nick and nick not in out[other]["names"]:
+                out[other]["names"].insert(len(out[other]["names"]) - 1, nick)  # apodos antes que el nombre civil
         return list(out.values())

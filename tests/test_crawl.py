@@ -75,7 +75,7 @@ class CrawlTest(unittest.TestCase):
         marea, ext = store.by_source("deezer", 9148), store.by_source("deezer", 4163)
         self.assertEqual((store.artist(marea)["level"], store.artist(marea)["genres"]), (2, ["rock"]))
         self.assertEqual(store.artist(ext)["level"], 1)
-        self.assertEqual(store.by_alias("plateroytu"), store.by_source("deezer", 6135))
+        self.assertEqual(store.by_alias("platerotu"), store.by_source("deezer", 6135))
         self.assertEqual(sum(dz.calls.values()) + sum(mb.calls.values()), 0)
 
     def test_enrich_command_is_resumable(self):

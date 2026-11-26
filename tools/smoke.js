@@ -117,6 +117,8 @@ setTimeout(async () => {
     { const items = [...$('results').querySelectorAll('li')];
       ok('/help lista los comandos y enlaza la ayuda', items.some(li => li.textContent.startsWith('/undo')) && !!$('results').querySelector('a[href="ayuda.html"]')); }
     $('results').innerHTML = '';
+    ok('norm: «y», «&» y «and» valen igual', norm('Fito y Fitipaldis') === norm('Fito & Fitipaldis') && Data.norm('Fito and Fitipaldis') === norm('Fito & Fitipaldis') && norm('Y') === 'y');
+    { const f = (await Data.search('Fito')).filter(r => /fitipaldis/i.test(r.name)); ok('un solo Fito y Fitipaldis' + (f.length === 1 ? '' : ' ' + f.map(r => r.name + '#' + r.id).join(',')), f.length === 1); }
     typeIn('/'); await sleep(200);
     ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
     cmd('/version'); await sleep(400);

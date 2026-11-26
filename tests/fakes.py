@@ -40,7 +40,7 @@ class FakeDeezer:
     def search(self, q, limit=10):
         self.calls["search"] += 1
         k = norm(q)
-        return [{"id": i, "name": a["name"], "fans": a.get("fans", 0), "picture": None}
+        return [{"id": i, "name": a["name"], "fans": a.get("fans", 0), "picture": None, "albums": a.get("albums", 1)}
                 for i, a in self.artists.items() if k and k in norm(a["name"])][:limit]
 
 

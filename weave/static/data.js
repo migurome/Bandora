@@ -4,7 +4,7 @@
 // los datos (id «dz<id de Deezer>») y las relacionadas de quien no las tiene guardadas.
 const Data = (() => {
   const KINDS = ['similar', 'influence', 'member'];
-  const nrm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+  const nrm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/(?<=\w)(?:\s*[&+]\s*|\s+(?:and|y|e|et|und)\s+)(?=\w)/g, ' ').replace(/[^a-z0-9]+/g, '');  // misma regla que weave/text.py
   const byId = new Map(), list = [], byDz = new Map(), live = new Map();  // live: artistas de Deezer vistos en vivo
   let families = [], related = {}, adj = null, rockFirst = null, version = '';
   const ready = fetch('data/weave.json').then(r => { if (!r.ok) throw new Error('datos ' + r.status); return r.json(); }).then(d => {

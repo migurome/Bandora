@@ -63,11 +63,28 @@ class StoreTest(unittest.TestCase):
             INSERT INTO artist (id, name, fans, level) VALUES (1, 'Marea', 53022, 2);""")
         old.commit(); old.close()
         conn = connect(path)
-        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "3")  # siempre migra a la última versión
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "4")  # siempre migra a la última versión
         self.assertEqual(conn.execute("SELECT name, fans, level FROM artist").fetchone()[:], ("Marea", 53022, 2))
         self.assertIn("weight", [r[1] for r in conn.execute("PRAGMA table_info(relation)")])
         self.assertIn("lastfm_at", [r[1] for r in conn.execute("PRAGMA table_info(artist)")])
         conn.close()
+
+    def test_renormalize_merges_conjunction_twins(self):
+        from weave.store import renormalize
+        a = self.s.upsert_deezer(307450, "Fito y Fitipaldis", 170576)
+        b = self.s.upsert_deezer(7225, "Fito & Fitipaldis", 42575)
+        x = self.s.upsert_deezer(1, "Extremoduro", 1)
+        n1 = self.s.upsert_deezer(2, "Nirvana", 9)
+        n2 = self.s.upsert_deezer(3, "Nirvana", 1)  # homónimos de siempre: no se tocan
+        self.s.set_related(x, [b])
+        c = self.s.conn  # como estaban antes de unificar las conjunciones
+        c.execute("UPDATE alias SET norm='fitoyfitipaldis' WHERE artist_id=?", (a,))
+        renormalize(c)
+        self.assertIsNone(self.s.artist(b))
+        self.assertEqual(self.s.artist(a)["name"], "Fito y Fitipaldis")
+        self.assertEqual([r["id"] for r in self.s.artist(x)["related"]], [a])
+        self.assertEqual(self.s.by_source("deezer", "7225"), a)
+        self.assertIsNotNone(self.s.artist(n1)); self.assertIsNotNone(self.s.artist(n2))
 
     def test_related_combined_order(self):
         a, x, y, z = (self.s.upsert_deezer(i, n) for i, n in [(1, "A"), (2, "X"), (3, "Y"), (4, "Z")])
@@ -101,7 +118,7 @@ class StoreTest(unittest.TestCase):
         c.execute("INSERT INTO artist (id, name, level) VALUES (1, 'Marea', 2)")
         c.close()
         conn = connect(path)
-        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "3")
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "4")
         self.assertIn("wikidata_at", [r[1] for r in conn.execute("PRAGMA table_info(artist)")])
         self.assertEqual(conn.execute("SELECT name FROM artist").fetchone()[0], "Marea")
         conn.close()

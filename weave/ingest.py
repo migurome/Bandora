@@ -123,15 +123,20 @@ class Ingestor:
             return False
         pairs, searched = {"member": [], "influence": []}, 0
         for syn in synergies:
-            other = self.store.by_mbid(syn["mbid"]) or self.store.by_alias(norm(syn["name"]))
-            if other is None and searched < 5:  # solo unas pocas búsquedas en Deezer por artista
-                searched += 1
-                try:
-                    other = self.resolve_name(syn["name"])
-                except (SourceError, OSError):
-                    other = None
+            other = self.store.by_mbid(syn["mbid"])
+            for name in syn.get("names", [syn["name"]]):  # primero el nombre artístico, luego el civil
+                if other:
+                    break
+                other = self.store.by_alias(norm(name))
+                if other is None and searched < 5:  # solo unas pocas búsquedas en Deezer por artista
+                    searched += 1
+                    try:
+                        other = self.resolve_name(name)
+                    except (SourceError, OSError):
+                        other = None
             if other and other != artist_id:
                 pairs[syn["kind"]].append((artist_id, other))
+        self.store.drop_relations(artist_id, "wikidata")  # al repetir, lo de la vez anterior se sustituye
         for kind, ps in pairs.items():
             if ps:
                 self.store.add_relations(ps, kind, "wikidata")
@@ -149,7 +154,7 @@ class Ingestor:
         found = self.store.by_alias(k)
         if found:
             return found
-        hits = [a for a in self.dz.search(name) if norm(a["name"]) == k]
+        hits = [a for a in self.dz.search(name) if norm(a["name"]) == k and a.get("albums", 1) > 0]  # fichas vacías no
         if not hits:
             return None
         best = max(hits, key=lambda a: a["fans"])

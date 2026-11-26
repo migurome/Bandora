@@ -135,6 +135,33 @@ class WikidataIngestTest(unittest.TestCase):
         self.assertEqual(store.mbid(marea), "mb-marea")
         self.assertIn(("Extremoduro", "member"), [(r["name"], r["kind"]) for r in store.artist(marea)["related"]])
 
+    def test_stage_name_with_music_wins(self):
+        syn = {"mbid": "mb-ia", "name": "Iñaki Antón", "names": ["Uoho", "Iñaki Antón"], "kind": "member"}
+        store, dz, mb, ing = world(wikidata=FakeWikidata({"mb-ext": [syn]}))
+        dz.artists[6640568] = {"name": "IÑAKI ANTON", "fans": 148, "albums": 0}
+        dz.artists[165369147] = {"name": "UOHO", "fans": 243, "albums": 9}
+        a = store.artist(ing.ensure_full(store.upsert_deezer(4163, "Extremoduro")))
+        self.assertIn("UOHO", [r["name"] for r in a["related"]])
+        self.assertNotIn("IÑAKI ANTON", [r["name"] for r in a["related"]])
+
+    def test_artist_without_albums_is_not_linked(self):
+        syn = {"mbid": "mb-ia", "name": "Iñaki Antón", "names": ["Iñaki Antón"], "kind": "member"}
+        store, dz, mb, ing = world(wikidata=FakeWikidata({"mb-ext": [syn]}))
+        dz.artists[6640568] = {"name": "IÑAKI ANTON", "fans": 148, "albums": 0}
+        a = store.artist(ing.ensure_full(store.upsert_deezer(4163, "Extremoduro")))
+        self.assertNotIn("IÑAKI ANTON", [r["name"] for r in a["related"]])
+
+    def test_wikidata_again_replaces_old_links(self):
+        syn = {"mbid": "mb-ia", "name": "Iñaki Antón", "names": ["Uoho", "Iñaki Antón"], "kind": "member"}
+        store, dz, mb, ing = world(wikidata=FakeWikidata({"mb-ext": [syn]}))
+        dz.artists[165369147] = {"name": "UOHO", "fans": 243, "albums": 9}
+        ext, old = store.upsert_deezer(4163, "Extremoduro"), store.upsert_deezer(6640568, "IÑAKI ANTON")
+        store.attach_mbid(ext, "mb-ext")
+        store.add_relations([(ext, old)], "member", "wikidata")  # lo que dejó la versión anterior
+        self.assertTrue(ing.enrich_wikidata(ext))
+        names = [r["name"] for r in store.artist(ext)["related"]]
+        self.assertIn("UOHO", names); self.assertNotIn("IÑAKI ANTON", names)
+
     def test_unresolved_synergy_is_skipped(self):
         wd = FakeWikidata({"mb-ext": [{"mbid": "mb-robe", "name": "Roberto Iniesta", "kind": "member"}]})
         store, dz, mb, ing = world(wikidata=wd)

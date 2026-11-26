@@ -99,8 +99,9 @@ class LastFmTest(unittest.TestCase):
             LastFm(f, "k").top_tags("Marea")
 
 
-def binding(mbid, name, kind):
-    return {"otherMbid": {"value": mbid}, "otherLabel": {"value": name}, "kind": {"value": kind}}
+def binding(mbid, name, kind, nick=None):
+    b = {"otherMbid": {"value": mbid}, "otherLabel": {"value": name}, "kind": {"value": kind}}
+    return {**b, "nick": {"value": nick}} if nick else b
 
 
 class WikidataTest(unittest.TestCase):
@@ -112,14 +113,21 @@ class WikidataTest(unittest.TestCase):
     def test_wikidata_synergies_shape(self):
         f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-pla", "Platero y Tú", "member"),
                                                                          binding("mb-ext2", "Extrechinato y Tú", "member")]}}})
-        self.assertEqual(Wikidata(f).synergies("mb-ext"), [{"mbid": "mb-pla", "name": "Platero y Tú", "kind": "member"},
-                                                            {"mbid": "mb-ext2", "name": "Extrechinato y Tú", "kind": "member"}])
+        self.assertEqual(Wikidata(f).synergies("mb-ext"), [{"mbid": "mb-pla", "name": "Platero y Tú", "names": ["Platero y Tú"], "kind": "member"},
+                                                            {"mbid": "mb-ext2", "name": "Extrechinato y Tú", "names": ["Extrechinato y Tú"], "kind": "member"}])
         self.assertIn("mb-ext", urllib.parse.unquote(f.urls[0]))
         self.assertIn("format=json", f.urls[0])
 
     def test_wikidata_member_wins_over_influence(self):
         f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-x", "X", "influence"), binding("mb-x", "X", "member")]}}})
-        self.assertEqual(Wikidata(f).synergies("mb-a"), [{"mbid": "mb-x", "name": "X", "kind": "member"}])
+        self.assertEqual(Wikidata(f).synergies("mb-a"), [{"mbid": "mb-x", "name": "X", "names": ["X"], "kind": "member"}])
+
+    def test_wikidata_stage_name_first(self):
+        # Iñaki Antón publica como «Uoho» (apodo en Wikidata, P1449): se prueba antes que el nombre civil
+        f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-ia", "Iñaki Antón", "member", "Uoho")]}}})
+        self.assertEqual(Wikidata(f).synergies("mb-ext")[0]["names"], ["Uoho", "Iñaki Antón"])
+        from weave.sources import SYNERGY_QUERY
+        self.assertIn("P1449", SYNERGY_QUERY); self.assertIn("?nick WHERE", SYNERGY_QUERY)
 
     def test_wikidata_skips_self(self):
         f = UrlFetcher({"query.wikidata.org": {"results": {"bindings": [binding("mb-a", "A", "member"), binding("mb-b", "B", "influence")]}}})

@@ -1,5 +1,6 @@
 """Almacén de artistas: lecturas, escrituras e identidad. Una conexión compartida protegida por un cerrojo."""
 import threading
+from collections import defaultdict
 from datetime import datetime, timezone
 
 from .families import color_of, family_of_list, order_of
@@ -146,6 +147,11 @@ class Store:
         states = dict(self._read("SELECT state, COUNT(*) FROM crawl GROUP BY state"))
         return {"levels": levels, "crawl": states}
 
+    def drop_relations(self, artist_id: int, source: str):
+        """Quita las relaciones de una fuente en las que está el artista (en los dos sentidos)."""
+        with self._write() as c:
+            c.execute("DELETE FROM relation WHERE source=? AND (a=? OR b=?)", (source, artist_id, artist_id))
+
     def add_relations(self, pairs, kind: str, source: str):
         """Relaciones simétricas (miembros, influencias): se guardan en los dos sentidos."""
         rows = [(a, b, kind, source) for x, y in pairs if x != y for a, b in ((x, y), (y, x))]
@@ -266,3 +272,35 @@ def _now():
 def _dedupe(xs):
     seen = set()
     return [x for x in xs if not (x in seen or seen.add(x))]
+
+
+def renormalize(conn) -> int:
+    """Recalcula las claves de los alias (tras mejorar norm) y funde los artistas que pasan a coincidir sin haber
+    coincidido antes («Fito y Fitipaldis» y «Fito & Fitipaldis»). Los homónimos de siempre no se tocan. Devuelve las fusiones."""
+    rows = conn.execute("SELECT artist_id, name, norm FROM alias").fetchall()
+    info = {r[0]: (r[1] or 0, r[2]) for r in conn.execute("SELECT id, fans, mbid FROM artist")}
+    old, groups = defaultdict(set), defaultdict(set)
+    for aid, name, k in rows:
+        old[aid].add(k)
+        if norm(name):
+            groups[norm(name)].add(aid)
+    merged = 0
+    conn.execute("BEGIN")
+    try:
+        for aid, name, k in rows:
+            if norm(name) != k:
+                conn.execute("UPDATE alias SET norm=? WHERE artist_id=? AND name=?", (norm(name), aid, name))
+        gone = set()
+        for ids in groups.values():
+            ids = sorted((i for i in ids if i in info), key=lambda i: -info[i][0])
+            for d in ids[1:]:
+                keep = ids[0]
+                mb = (info[keep][1], info[d][1])
+                if d in gone or keep in gone or old[d] & old[keep] or (all(mb) and mb[0] != mb[1]):
+                    continue  # ya coincidían (homónimos) o MusicBrainz dice que son distintos
+                _merge(conn, keep, d); gone.add(d); merged += 1
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return merged
