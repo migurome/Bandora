@@ -58,8 +58,8 @@ button:hover { background: #3a3f49; }
   font: 14px ui-monospace, 'Cascadia Mono', Consolas, monospace; pointer-events: none; opacity: 0; }
 .ui .bar.busy .searching { animation: breathe 1.4s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-/* minijuego de la espera: una serpiente sobre el mapa que sigue el dedo */
-#game { position: fixed; inset: 0; z-index: 1; width: 100vw; height: 100vh; display: none; opacity: 0; transition: opacity .4s; touch-action: none; }
+/* minijuego de la espera: un Pong sobre el mapa; tu pala abajo sigue el dedo */
+#game { position: fixed; left: 0; top: 0; z-index: 1; display: none; opacity: 0; transition: opacity .4s; touch-action: none; }
 #game.on { display: block; opacity: 1; }
 #game.fade { display: block; opacity: 0; pointer-events: none; }
 @keyframes pulse { 50% { opacity: .3; } }
@@ -174,36 +174,46 @@ function flashError() {
 
 // ---------- Logo de carga ----------
 let busyCount = 0;
-// Minijuego de la espera: una serpiente amarilla sobre el mapa. Sigue el dedo (o el ratón); sin dedo, va sola a
-// por la comida. Comer la alarga. Sin marcador ni nada más.
+// Minijuego de la espera: un Pong sobre el mapa. Tu pala (amarilla) abajo sigue el dedo de izquierda a derecha; la
+// de la máquina (gris) arriba. Si la pelota se escapa, vuelve al centro y saca hacia el otro lado. Sin marcador.
 const game = (() => {
   const cv = document.createElement('canvas'); cv.id = 'game'; document.body.appendChild(cv);
-  const g = cv.getContext('2d'), GAP = 7, SPEED = 4;
-  let wait = 0, frame = 0, trail, len, food, aim = null, eaten = 0;
-  const newFood = () => [30 + Math.random() * (innerWidth - 60), 120 + Math.random() * (innerHeight - 230)];
+  const g = cv.getContext('2d'), PW = 84, PH = 8, BALL = 6, TOP = 112, BOTTOM = 96;  // libres la barra y el pie
+  let wait = 0, frame = 0, me, cpu, ball, aim = null;
+  const yMe = () => innerHeight - BOTTOM - PH, yCpu = () => TOP;
+  function serve(dir) {
+    const a = (Math.random() - 0.5) * 1.2;
+    ball = { x: innerWidth / 2, y: innerHeight / 2, vx: 4 * Math.sin(a), vy: 4 * Math.cos(a) * dir };
+  }
   function reset() {
     const dpr = devicePixelRatio || 1;
     cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    trail = [[innerWidth / 2, innerHeight * 0.7]]; len = 14; food = newFood(); aim = null; eaten = 0;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';  // 100vh en el móvil es más alto que lo visible
+    me = cpu = innerWidth / 2; aim = null; serve(1);
+  }
+  const clampX = x => Math.max(PW / 2, Math.min(innerWidth - PW / 2, x));
+  function hit(px, py, down) {  // ¿toca la pala? rebota con efecto según dónde pegue
+    if (Math.abs(ball.x - px) > PW / 2 + BALL || (down ? ball.y + BALL < py || ball.y - BALL > py + PH : ball.y - BALL > py + PH || ball.y + BALL < py)) return;
+    const speed = Math.min(11, Math.hypot(ball.vx, ball.vy) * 1.06), off = (ball.x - px) / (PW / 2);
+    ball.vx = speed * off * 0.8; ball.vy = Math.sqrt(Math.max(1, speed * speed - ball.vx * ball.vx)) * (down ? -1 : 1);
+    ball.y = down ? py - BALL : py + PH + BALL;
+    sfx.join(Math.round(speed));
   }
   function tick() {
     frame = requestAnimationFrame(tick);
-    const [hx, hy] = trail[0], [tx, ty] = aim || food, d = Math.hypot(tx - hx, ty - hy);
-    if (d > SPEED) trail.unshift([hx + (tx - hx) / d * SPEED, hy + (ty - hy) / d * SPEED]);
-    const keep = Math.ceil(len * GAP / SPEED);
-    if (trail.length > keep) trail.length = keep;
-    if (Math.hypot(food[0] - trail[0][0], food[1] - trail[0][1]) < 16) { len += 5; sfx.join(eaten++); food = newFood(); }
+    if (aim != null) me = clampX(aim);
+    cpu = clampX(cpu + Math.max(-4.2, Math.min(4.2, ball.x - cpu)));  // la máquina persigue la pelota, con límite
+    ball.x += ball.vx; ball.y += ball.vy;
+    if (ball.x < BALL || ball.x > innerWidth - BALL) { ball.vx *= -1; ball.x = Math.max(BALL, Math.min(innerWidth - BALL, ball.x)); }
+    if (ball.vy > 0) hit(me, yMe(), true); else hit(cpu, yCpu(), false);
+    if (ball.y > innerHeight - BOTTOM + 30) serve(-1);       // se te escapa: saca la máquina
+    else if (ball.y < TOP - 30) { sfx.chord(); serve(1); }  // se le escapa a la máquina
     g.clearRect(0, 0, innerWidth, innerHeight);
-    g.fillStyle = '#eceef2'; g.beginPath(); g.arc(food[0], food[1], 5 + Math.sin(performance.now() / 200), 0, 7); g.fill();
-    g.lineCap = 'round'; g.strokeStyle = '#f2c94c';
-    for (let i = trail.length - 1; i > 0; i--) {  // la cola se afina y se apaga
-      const t = 1 - i / trail.length;
-      g.globalAlpha = 0.25 + 0.75 * t; g.lineWidth = 3 + 9 * t;
-      g.beginPath(); g.moveTo(trail[i][0], trail[i][1]); g.lineTo(trail[i - 1][0], trail[i - 1][1]); g.stroke();
-    }
-    g.globalAlpha = 1; g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(trail[0][0], trail[0][1], 7, 0, 7); g.fill();
+    g.fillStyle = '#f2c94c'; g.beginPath(); g.roundRect(me - PW / 2, yMe(), PW, PH, 4); g.fill();
+    g.fillStyle = '#9aa0aa'; g.beginPath(); g.roundRect(cpu - PW / 2, yCpu(), PW, PH, 4); g.fill();
+    g.fillStyle = '#eceef2'; g.beginPath(); g.arc(ball.x, ball.y, BALL, 0, 7); g.fill();
   }
-  const follow = e => { aim = [e.clientX, e.clientY]; };
+  const follow = e => { aim = e.clientX; me = clampX(aim); };  // al instante, sin esperar al fotograma
   cv.addEventListener('pointerdown', e => { e.preventDefault(); follow(e); });
   cv.addEventListener('pointermove', follow);
   return {
@@ -217,7 +227,7 @@ const game = (() => {
       cancelAnimationFrame(frame); frame = 0; cv.className = 'fade';
       setTimeout(() => { if (!frame) cv.className = ''; }, 450);
     },
-    playing: () => !!frame, target: () => aim,
+    playing: () => !!frame, paddle: () => me,
   };
 })();
 function showBusy() {

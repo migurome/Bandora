@@ -37,11 +37,12 @@ setTimeout(async () => {
     const wait = working(sleep(3000)); await sleep(1900);
     const bar = document.querySelector('.ui .bar'), word = bar.querySelector('.searching');
     $('game').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 300 }));
-    const [tx, ty] = game.target();
+
     ok('espera: «searching» en la barra y nada más', bar.classList.contains('busy') && word && word.textContent === 'searching' && !document.getElementById('busy'));
-    ok('espera: la serpiente sigue el dedo', game.playing() && tx === 120 && ty === 300);
+    await sleep(100);
+    ok('espera: pong, la pala sigue el dedo', game.playing() && game.paddle() === 120);
     await wait; await sleep(800);
-    ok('fin de espera: sin «searching» ni serpiente', !bar.classList.contains('busy') && !game.playing());
+    ok('fin de espera: sin «searching» ni juego', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
     ok('play', !player.paused && document.querySelector('.node.playing'));
