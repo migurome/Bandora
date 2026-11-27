@@ -30,7 +30,7 @@ button:hover { background: #4b2f66; }
 /* lema: solo con el mapa vacío (body.empty) */
 .brand .tagline { margin-left: 10px; font: 400 12px/1 system-ui, "Segoe UI", sans-serif; color: var(--muted); opacity: 0; transition: opacity .7s; white-space: nowrap; }
 body.empty .brand .tagline { opacity: 1; }
-#q::placeholder { color: var(--muted); }
+#q::placeholder { color: var(--accent); opacity: .45; }  /* los ejemplos que se escriben solos, en rosa suave */
 /* pista para quien entra por primera vez: late el buscado y luego desplegar, hasta el primer despliegue */
 .node .ring { display: none; fill: none; stroke: var(--accent); stroke-width: 2; pointer-events: none; transform-box: fill-box; transform-origin: center; }
 .node.hint .ring { display: inline; animation: hint 1.6s ease-out infinite; }
@@ -40,7 +40,7 @@ body.empty .brand .tagline { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .node.hint .ring, .opt.hint .bg { animation: none; } }
 .ui .bar { position: relative; }
 .ui .bar::before { content: '›'; position: absolute; left: 16px; top: 50%; transform: translateY(-52%); color: var(--accent); font-size: 22px; pointer-events: none; }
-#q { width: 100%; padding: 12px 16px 12px 38px; font: 16px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text);
+#q { width: 100%; padding: 12px 16px 12px 38px; font: 16px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--accent);
      background: var(--panel); border: 1px solid var(--line); border-radius: 999px; }
 #q:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 #q.err { border-color: #e5484d; animation: shake .35s; }
@@ -149,7 +149,7 @@ body.empty .brand .tagline { opacity: 1; }
 // ---------- Utilidades ----------
 const VERSION = 'b0.3.12';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
-  ['b0.3.12', '27/11', 'beta: ahora se llama Bandora; colores de atardecer neón con el rosa como principal; iconos nuevos'],
+  ['b0.3.12', '27/11', 'beta: ahora se llama Bandora; colores de atardecer neón con el rosa como principal; iconos nuevos; texto de la barra en rosa'],
   ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo (tócalos) y pista que late hasta el primer despliegue'],
   ['v0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes); /version b… para probar una beta'],
   ['v0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],

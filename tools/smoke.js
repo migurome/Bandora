@@ -14,6 +14,7 @@ setTimeout(async () => {
     try { localStorage.removeItem('weave-learned'); } catch {}
     await sleep(600);
     ok('fondo animado al arrancar', $('ambient').classList.contains('on'));
+    ok('texto de la barra en rosa', getComputedStyle($('q')).color === 'rgb(255, 46, 136)');
     ok('lema con el mapa vacío', document.body.classList.contains('empty') && !!document.querySelector('.tagline').textContent);
     { const p1 = $('q').placeholder; await sleep(1500);
       ok('la barra escribe nombres de ejemplo', $('q').placeholder !== p1 && !$('q').value); }
