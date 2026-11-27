@@ -11,22 +11,36 @@ setTimeout(async () => {
   const r = [];
   const ok = (name, cond) => r.push((cond ? 'ok ' : 'MAL ') + name);
   try {
+    try { localStorage.removeItem('weave-learned'); } catch {}
     await sleep(600);
     ok('fondo animado al arrancar', $('ambient').classList.contains('on'));
+    ok('lema con el mapa vacío', document.body.classList.contains('empty') && !!document.querySelector('.tagline').textContent);
+    { const p1 = $('q').placeholder; await sleep(1500);
+      ok('la barra escribe nombres de ejemplo', $('q').placeholder !== p1 && !$('q').value); }
+    { let s = []; for (let i = 0; i < 60 && s.length < 3; i++) { await sleep(250); s = ambient.spots(); }
+      ok('el fondo trae artistas con foto', s.length >= 3);
+      const p = s[0];
+      document.getElementById('svg').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: p.x, clientY: p.y })); await sleep(2500);
+      ok('tocar un artista del fondo lo trae al mapa', nodes.length === 1 && nodes[0].id === p.id);
+      clearMap(); await sleep(900);
+      ok('sin mapa vuelve el lema', document.body.classList.contains('empty')); }
     typeIn('Marea'); await sleep(2500);
     ok('el fondo se va al buscar', !$('ambient').classList.contains('on'));
     ok('busqueda', $('results').querySelectorAll('li').length > 0);
     $('results').querySelector('li').click(); await sleep(2500);
     ok('origen añadido', nodes.length === 1 && nodes[0].name === 'Marea' && nodes[0].selected);
+    ok('pista: el buscado late hasta abrirlo', nodeG('Marea').classList.contains('hint') && !document.body.classList.contains('empty'));
     const hero = nodes[0], [hx, hy] = d3.zoomTransform(document.getElementById('svg')).apply([hero.x, hero.y]);
     ok('buscado grande y centrado', hero.hero && radius(hero) >= 50 && Math.abs(hx - innerWidth / 2) < 40);
     ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
     ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
     clk(nodeG('Marea')); await sleep(300);
     ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
+    ok('pista: luego late desplegar', !nodeG('Marea').classList.contains('hint') && opt('expand').classList.contains('hint'));
     clk(opt('expand')); await sleep(6000);
     ok('desplegar', nodes.length === 6 && opt('expand').classList.contains('off'));
     ok('al desplegar vuelve a normal', !hero.hero && hero.fx == null);
+    ok('pista aprendida: no vuelve', !document.querySelector('.hint'));
     const svgSel = d3.select('#svg');
     svgSel.call(zoom.transform, d3.zoomIdentity.scale(0.5)); await sleep(100);
     const far = root.classed('far');

@@ -26,6 +26,17 @@ button:hover { background: #3a3f49; }
 .ui { position: fixed; top: 12px; left: 16px; right: 16px; z-index: 3; }
 .brand { margin: 0 0 8px 6px; font: 700 20px/1 system-ui, "Segoe UI", sans-serif; letter-spacing: .2px; user-select: none; }
 .brand span { font-weight: 400; color: var(--accent); }
+/* lema: solo con el mapa vacío (body.empty) */
+.brand .tagline { margin-left: 10px; font: 400 12px/1 system-ui, "Segoe UI", sans-serif; color: var(--muted); opacity: 0; transition: opacity .7s; white-space: nowrap; }
+body.empty .brand .tagline { opacity: 1; }
+#q::placeholder { color: var(--muted); }
+/* pista para quien entra por primera vez: late el buscado y luego desplegar, hasta el primer despliegue */
+.node .ring { display: none; fill: none; stroke: var(--accent); stroke-width: 2; pointer-events: none; transform-box: fill-box; transform-origin: center; }
+.node.hint .ring { display: inline; animation: hint 1.6s ease-out infinite; }
+.opt.hint .bg { animation: hintbtn 1.2s ease-in-out infinite; }
+@keyframes hint { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
+@keyframes hintbtn { 50% { stroke: #fff; stroke-width: 4; } }
+@media (prefers-reduced-motion: reduce) { .node.hint .ring, .opt.hint .bg { animation: none; } }
 .ui .bar { position: relative; }
 .ui .bar::before { content: '›'; position: absolute; left: 16px; top: 50%; transform: translateY(-52%); color: var(--accent); font-size: 22px; pointer-events: none; }
 #q { width: 100%; padding: 12px 16px 12px 38px; font: 16px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text);
@@ -121,7 +132,7 @@ button:hover { background: #3a3f49; }
 </head>
 <body>
 <div class="ui">
-  <div class="brand">Weave <span>bands</span></div>
+  <div class="brand">Weave <span>bands</span><span class="tagline">busca un grupo y descubre otros parecidos</span></div>
   <div class="bar"><span class="searching" role="status">searching</span><input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /label, /clear)"></div>
   <ul id="results"></ul>
 </div>
@@ -135,8 +146,9 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = 'v0.3.10';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
+const VERSION = 'b0.3.11';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
+  ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo (tócalos) y pista que late hasta el primer despliegue'],
   ['v0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes); /version b… para probar una beta'],
   ['v0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
   ['v0.3.8', '27/11', '/debug id enseña el identificador único de cada bola'],
@@ -427,6 +439,32 @@ const ambient = (() => {
   const COLORS = ['#f2c94c', '#9aa0aa', '#9aa0aa'];  // colores de la app: amarillo y gris
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let dots = [], frame = 0, shown = false, last = 0;
+  // algunos puntos son artistas conocidos con su foto: tocarlos empieza el mapa por ellos (solo con red: sin foto no salen)
+  const STARS = ['Extremoduro', 'Rosalía', 'Queen', 'Bad Bunny', 'Nirvana', 'Estopa', 'Daft Punk', 'Bob Marley', 'Shakira', 'Metallica'];
+  let pool = null;
+  async function loadStars() {
+    if (pool) return;
+    pool = [];
+    for (const name of STARS) {
+      try {
+        const [a] = await Data.search(name, 1);
+        if (!a || !a.picture || Data.norm(a.name) !== Data.norm(name)) continue;
+        const img = new Image(); img.src = a.picture; await img.decode();
+        pool.push({ id: a.id, name: a.name, img });
+        if (shown) { addStars(); draw(); }
+      } catch {}
+    }
+  }
+  function addStars() {
+    const max = innerWidth < 600 ? 4 : 6, have = new Set(dots.filter(d => d.star).map(d => d.star.id));
+    for (const s of [...pool].sort(() => Math.random() - 0.5)) {
+      if (have.size >= max) break;
+      if (have.has(s.id)) continue;
+      have.add(s.id);
+      dots.push({ x: 30 + Math.random() * (innerWidth - 60), y: 140 + Math.random() * Math.max(40, innerHeight - 260), r: 20,
+        vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, c: '#f2c94c', star: s });
+    }
+  }
   function size() {
     const dpr = devicePixelRatio || 1;
     cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -435,6 +473,7 @@ const ambient = (() => {
     dots = Array.from({ length: n }, (_, i) => ({
       x: Math.random() * innerWidth, y: Math.random() * innerHeight, r: 2 + Math.random() * 4,
       vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35, c: COLORS[i % COLORS.length] }));
+    if (pool) addStars();
   }
   function draw() {
     g.clearRect(0, 0, innerWidth, innerHeight);
@@ -445,7 +484,18 @@ const ambient = (() => {
       g.globalAlpha = 0.5 * (1 - d / LINK); g.strokeStyle = '#f2c94c';  // conexiones amarillas
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
-    for (const p of dots) { g.globalAlpha = 0.5; g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill(); }
+    for (const p of dots) {
+      if (p.star) continue;
+      g.globalAlpha = 0.5; g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+    }
+    g.font = '11px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center';
+    for (const p of dots) {
+      if (!p.star) continue;
+      g.save(); g.globalAlpha = 0.85; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.clip();
+      g.drawImage(p.star.img, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); g.restore();
+      g.globalAlpha = 0.8; g.strokeStyle = '#f2c94c'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.stroke();
+      g.globalAlpha = 0.75; g.fillStyle = '#9aa0aa'; g.fillText(p.star.name, p.x, p.y + p.r + 13);
+    }
     g.globalAlpha = 1;
   }
   function tick(now) {
@@ -460,8 +510,12 @@ const ambient = (() => {
   }
   addEventListener('resize', () => { if (shown) size(); });
   return {
+    spots: () => shown ? dots.filter(d => d.star).map(d => ({ x: d.x, y: d.y, r: d.r, id: d.star.id })) : [],
+    hit(x, y) { const p = this.spots().find(p => Math.hypot(p.x - x, p.y - y) < p.r + 8); return p ? p.id : null; },
     update() {  // visible solo con el mapa vacío, la barra sin texto y sin juego de espera
       const want = nodes.length === 0 && !$('q').value.trim() && !game.playing();
+      document.body.classList.toggle('empty', want);  // lema y barra que escribe sola
+      if (want) loadStars();
       if (want === shown) return;
       shown = want; cv.classList.toggle('on', want);
       if (want) {
@@ -470,6 +524,23 @@ const ambient = (() => {
       } else setTimeout(() => { if (!shown) { cancelAnimationFrame(frame); frame = 0; cv.width = cv.height = 0; dots = []; } }, 800);  // tras el fundido
     },
   };
+})();
+// Con el mapa vacío la barra «escribe» nombres de ejemplo (solo en el placeholder): se ve que aquí va un artista
+(() => {
+  const NAMES = ['Extremoduro', 'Rosalía', 'Queen', 'Bad Bunny', 'Nirvana', 'Estopa'], q = $('q');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { q.placeholder = 'Extremoduro, Rosalía, Queen…'; return; }
+  let i = 0, n = 0, back = false;
+  (function step() {
+    if (!document.body.classList.contains('empty') || document.activeElement === q) {
+      q.placeholder = document.activeElement === q && !nodes.length ? 'un grupo o artista' : '';
+      n = 0; back = false; return setTimeout(step, 400);
+    }
+    const w = NAMES[i % NAMES.length];
+    if (!back && ++n > w.length) { back = true; return setTimeout(step, 1400); }
+    if (back && --n <= 0) { back = false; n = 0; i++; }
+    q.placeholder = w.slice(0, n);
+    setTimeout(step, back ? 45 : 110);
+  })();
 })();
 function showBusy() {
   const on = busyCount > 0;
@@ -646,6 +717,7 @@ function render() {
       .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); }));  // se queda donde lo sueltas
   e.append('circle').attr('class', 'ring');
   e.append('circle').attr('class', 'spin');
+  e.append('circle').attr('class', 'ring');
   e.append('circle').attr('class', 'dot');
   e.append('clipPath').attr('id', d => 'clip' + d.id).append('circle');  // recorte circular de la foto
   e.append('circle').attr('class', 'gloss').attr('fill', 'url(#gloss)');
@@ -656,7 +728,8 @@ function render() {
   e.append('text').attr('class', 'label').attr('text-anchor', 'middle');
   e.append('text').attr('class', 'dbgid').attr('text-anchor', 'middle');
 
-  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
+  const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : '')
+    + (d.hero && !d.open && !learned() ? ' hint' : ''));
   all.select('clipPath circle').attr('r', radius);
   all.select('.pic').attr('href', d => d.picture || null)
     .attr('x', d => -radius(d)).attr('y', d => -radius(d)).attr('width', d => 2 * radius(d)).attr('height', d => 2 * radius(d));
@@ -672,6 +745,7 @@ function render() {
   all.select('.playmark').attr('transform', d => `scale(${radius(d) / 22})`);
   all.select('.pinmark').attr('display', d => d.pinned ? null : 'none')
     .attr('transform', d => `translate(0,${-radius(d) * 0.9}) scale(${radius(d) / 28.7})`);  // asentada en lo alto: las puntas de la base tocan el borde
+  all.select('.ring').attr('r', d => radius(d) + 4);
   all.select('.gloss').attr('r', radius).attr('display', d => d.picture ? 'none' : null);
   all.select('text.inner').each(function (d) {  // sin foto: el nombre dentro, ajustado al tamaño de la bola
     const I = d.picture ? { lines: [], size: 0 } : innerLines(d);
@@ -781,6 +855,7 @@ function renderMenus(all) {
     })
     .classed('off', o => !!(o.off && o.off(o.d)))
     .classed('on', o => !!(o.on && o.on(o.d)))
+    .classed('hint', o => o.key === 'expand' && canExpand(o.d) && !learned())
     .attr('transform', o => {
       // separación fija en píxeles por el arco (no en grados): en círculos pequeños el arco se abre o se aleja
       const i = OPTS.findIndex(x => x.key === o.key), last = OPTS.length - 1;
@@ -823,7 +898,11 @@ function fanAngles(n, count) {
   const arc = n.parent ? Math.PI * 1.2 : 2 * Math.PI;
   return Array.from({ length: count }, (_, i) => n.parent ? out - arc / 2 + arc * (i + 0.5) / count : out + arc * i / count);
 }
+// quien ya desplegó una vez sabe usarlo: fuera las pistas (para siempre en ese móvil)
+const learned = () => { try { return localStorage.getItem('weave-learned') === '1'; } catch { return false; } };
+const learn = () => { try { localStorage.setItem('weave-learned', '1'); } catch {} };
 async function expand(n) {
+  learn();
   if (n.loading) return;
   remember(); unhero(n);
   select(n);
@@ -1219,7 +1298,10 @@ $('clear').onclick = clearEverything;
 document.addEventListener('pointerdown', e => {  // tocar cualquier cosa fuera de la barra cierra su submenú
   if (!e.target.closest('.bar, #results')) $('results').innerHTML = '';
 }, true);
-svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
+svg.on('click', ev => {
+  const id = nodes.length ? null : ambient.hit(ev.clientX, ev.clientY);  // artista del fondo: empieza por él
+  if (id != null) return addOrigin({ id });
+  closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
 document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionada
   if (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.target.tagName !== 'INPUT') { e.preventDefault(); return undo(); }
   if (e.key !== 'Delete' || e.target.tagName === 'INPUT') return;
