@@ -31,8 +31,8 @@ setTimeout(async () => {
     ok('pista: el buscado late hasta abrirlo', nodeG('Marea').classList.contains('hint') && !document.body.classList.contains('empty'));
     const hero = nodes[0], [hx, hy] = d3.zoomTransform(document.getElementById('svg')).apply([hero.x, hero.y]);
     ok('buscado grande y centrado', hero.hero && radius(hero) >= 50 && Math.abs(hx - innerWidth / 2) < 40);
-    ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#a3c9f5');
-    ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#a3c9f5');
+    ok('color de familia', d3.select(nodeG('Marea')).select('.dot').attr('fill') === '#ff2e88');
+    ok('familia del servidor', nodes[0].genre === 'Rock' && nodes[0].color === '#ff2e88');
     clk(nodeG('Marea')); await sleep(300);
     ok('menu 6 opciones', document.querySelectorAll('g.opt').length === 6);
     ok('pista: luego late desplegar', !nodeG('Marea').classList.contains('hint') && opt('expand').classList.contains('hint'));
@@ -88,10 +88,10 @@ setTimeout(async () => {
     ok('siguiente', !player.paused && queue.i === 1);
     $('play').click(); await sleep(300);
     ok('pausa pie', player.paused);
-    cmd('/label on'); ok('label on', getComputedStyle($('legend')).display !== 'none');
+    cmd('/tag on'); ok('tag on', getComputedStyle($('legend')).display !== 'none');
     clk($('legend').querySelector('button')); ok('filtro', document.querySelectorAll('.node.off').length > 0);
     clk($('legend').querySelector('button'));
-    cmd('/label off'); ok('label off', getComputedStyle($('legend')).display === 'none');
+    cmd('/tag off'); ok('tag off', getComputedStyle($('legend')).display === 'none');
     const sink = nodes.find(n => n.name !== 'Marea');
     select(sink); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' })); await sleep(300);
     ok('supr', nodes.length === 5);

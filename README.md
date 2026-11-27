@@ -34,7 +34,7 @@ Requisitos: Python 3.12 (solo librería estándar). La página lee `weave/static
 | Mover un círculo | Arrástralo: se queda donde lo sueltes |
 | Quitar artista | Papelera del menú o Supr (se lleva la rama que colgaba de él) |
 | Camino entre artistas | `/from Marea to Michael Jackson` (Tab completa los nombres) |
-| Leyenda y filtro de géneros | `/label on` · `/label off` |
+| Leyenda y filtro de géneros | `/tag on` · `/tag off` |
 | Limpiar mapa y parar música | `/clear` o ✕ (dos veces si hay favoritas) |
 | Deshacer el último cambio del mapa | `/undo` o Ctrl+Z |
 | Guardar y recuperar mapas (en el móvil, sin conexión) | `/save nombre` · `/load nombre` |

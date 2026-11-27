@@ -2,15 +2,15 @@
   "_comentario": "Familias de género en orden fijo (orden de la leyenda). La primera cuyo patrón encaja gana. Patrones: regex sobre el género en minúsculas.",
   "rock_first": "rock$|rock and roll|rock urbano",
   "families": [
-    {"name": "Metal", "color": "#f5a9c8", "pattern": "metal|grindcore|thrash|doom"},
-    {"name": "Hip hop", "color": "#f3c6a5", "pattern": "hip ?hop|rap|trap|drill|grime"},
-    {"name": "Electrónica", "color": "#9de3d0", "pattern": "electr|house|techno|trance|edm|dubstep|drum and bass|ambient|synth|^dance$|idm"},
-    {"name": "Latina / Flamenco", "color": "#f5a3a3", "pattern": "latin|flamenco|rumba|salsa|reggaet|cumbia|bachata|merengue|tango|bolero|ranchera|copla|son cubano"},
-    {"name": "Soul / Funk / Jazz / Blues", "color": "#c9bbf6", "pattern": "soul|funk|r&b|rhythm and blues|disco|jazz|blues|gospel|motown|swing"},
-    {"name": "Clásica / Bandas sonoras", "color": "#f6e3a1", "pattern": "classical|baroque|opera|orchestra|symphon|romantic|composer|soundtrack|score|\bost\b|neoclassical|chamber|choral|minimalism"},
-    {"name": "Folk / Cantautor", "color": "#d9c3a5", "pattern": "folk|singer-songwriter|cantautor|country|americana|bluegrass|acoustic"},
-    {"name": "Pop", "color": "#b5e3a1", "pattern": "pop|chanson|schlager|variété"},
-    {"name": "Rock", "color": "#a3c9f5", "pattern": "rock|punk|grunge|indie|alternativ|britpop|emo|garage|shoegaze|post-|psychedel"},
-    {"name": "Otros", "color": "#c0c6cf"}
+    {"name": "Metal", "color": "#ff4d4d", "pattern": "metal|grindcore|thrash|doom"},
+    {"name": "Hip hop", "color": "#ff9e4a", "pattern": "hip ?hop|rap|trap|drill|grime"},
+    {"name": "Electrónica", "color": "#2de2c8", "pattern": "electr|house|techno|trance|edm|dubstep|drum and bass|ambient|synth|^dance$|idm"},
+    {"name": "Latina / Flamenco", "color": "#ff7ac6", "pattern": "latin|flamenco|rumba|salsa|reggaet|cumbia|bachata|merengue|tango|bolero|ranchera|copla|son cubano"},
+    {"name": "Soul / Funk / Jazz / Blues", "color": "#a77bff", "pattern": "soul|funk|r&b|rhythm and blues|disco|jazz|blues|gospel|motown|swing"},
+    {"name": "Clásica / Bandas sonoras", "color": "#ffe3b3", "pattern": "classical|baroque|opera|orchestra|symphon|romantic|composer|soundtrack|score|\bost\b|neoclassical|chamber|choral|minimalism"},
+    {"name": "Folk / Cantautor", "color": "#5cc8ff", "pattern": "folk|singer-songwriter|cantautor|country|americana|bluegrass|acoustic"},
+    {"name": "Pop", "color": "#ffd23f", "pattern": "pop|chanson|schlager|variété"},
+    {"name": "Rock", "color": "#ff2e88", "pattern": "rock|punk|grunge|indie|alternativ|britpop|emo|garage|shoegaze|post-|psychedel"},
+    {"name": "Otros", "color": "#b09cc0"}
   ]
 }

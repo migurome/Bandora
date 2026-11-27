@@ -22,7 +22,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 button { background: var(--line); color: var(--text); border: 0; font: inherit; cursor: pointer; }
 button:hover { background: #4b2f66; }
 
-/* Terminal: artistas y comandos (/from A to B, /label on|off, /clear) */
+/* Terminal: artistas y comandos (/from A to B, /tag on|off, /clear) */
 .ui { position: fixed; top: 12px; left: 16px; right: 16px; z-index: 3; }
 .brand { margin: 0 0 8px 6px; font: 700 20px/1 system-ui, "Segoe UI", sans-serif; letter-spacing: .2px; user-select: none; }
 .brand b { font-weight: 800; font-style: italic; letter-spacing: .3px; padding-right: 2px;
@@ -62,10 +62,11 @@ body.empty .brand .tagline { opacity: 1; }
 #foot button:disabled { opacity: .35; cursor: default; }
 #foot button[aria-pressed="true"] { background: var(--accent); color: #111; }
 
-/* Leyenda de géneros = filtro (/label on) */
+/* Leyenda de géneros = filtro (/tag on) */
 #legend { position: fixed; left: 16px; bottom: 16px; z-index: 2; font-size: 12px; max-width: 320px; }
 #legend button { background: none; padding: 2px 6px; margin: 0 4px 2px 0; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; font-size: 12px; }
 #legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
+@media (max-width: 700px) { #legend { bottom: 72px; right: 16px; max-width: none; } }  /* en el móvil, encima de borrar y play/pausa */
 #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
@@ -134,7 +135,7 @@ body.empty .brand .tagline { opacity: 1; }
 <body>
 <div class="ui">
   <div class="brand"><b>Bandora</b><span class="tagline">busca un grupo y descubre otros parecidos</span></div>
-  <div class="bar"><span class="searching" role="status">searching</span><input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /label, /clear)"></div>
+  <div class="bar"><span class="searching" role="status">searching</span><input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /tag, /clear)"></div>
   <ul id="results"></ul>
 </div>
 <div id="legend"></div>
@@ -149,7 +150,7 @@ body.empty .brand .tagline { opacity: 1; }
 // ---------- Utilidades ----------
 const VERSION = 'b0.3.13';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
-  ['b0.3.13', '27/11', 'beta: el botón de desplegar es más grande y lleva la B de Bandora delante de una red irregular'],
+  ['b0.3.13', '27/11', 'beta: el botón de desplegar es más grande y lleva la B de Bandora delante de una red irregular; familias con los colores de atardecer neón (rock rosa, pop amarillo, electrónica turquesa…); /label pasa a ser /tag y en el móvil la leyenda ya no queda detrás de los botones'],
   ['v0.3.12', '27/11', 'oficial: lo de las betas 0.3.11 y 0.3.12; el fondo no se abre pero sus artistas se unen a la red; logo con la B de Bandora; icono de desplegar nuevo; relaciones en naranja (miembros) y turquesa (influencia)'],
   ['b0.3.12', '27/11', 'beta: ahora se llama Bandora; colores de atardecer neón con el rosa como principal; iconos nuevos; texto de la barra en rosa'],
   ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo y pista que late hasta el primer despliegue'],
@@ -1175,7 +1176,7 @@ async function pathByNames(a, b) {
 }
 const COMMANDS = [
   { usage: '/from <b>A</b> to <b>B</b>', fill: '/from ', re: /^\/from\s+(.+?)\s+to\s+(.+)$/i, run: m => pathByNames(m[1], m[2]) },
-  { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
+  { usage: '/tag <b>on</b>|<b>off</b>', fill: '/tag ', re: /^\/tags?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
   { usage: '/help', fill: '/help', re: /^\/(?:help|ayuda|\?)(\s+-a)?$/i, run: m => showHelp(!!m[1]) },  // -a (oculto): también lo de depurar

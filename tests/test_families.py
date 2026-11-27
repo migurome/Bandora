@@ -21,8 +21,8 @@ class FamiliesTest(unittest.TestCase):
         self.assertEqual(family_of_list([]), "Otros")
 
     def test_colors_and_order(self):
-        self.assertEqual(color_of("Rock"), "#a3c9f5")
-        self.assertEqual(color_of("Otros"), "#c0c6cf")
+        self.assertEqual(color_of("Rock"), "#ff2e88")
+        self.assertEqual(color_of("Otros"), "#b09cc0")
         self.assertEqual(order_of("Metal"), 0)
         self.assertEqual(order_of("Otros"), 9)
 

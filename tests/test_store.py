@@ -48,7 +48,7 @@ class StoreTest(unittest.TestCase):
         a = self.s.upsert_deezer(9148, "Marea")
         self.s.set_genres(a, [("spanish", 9), ("hard rock", 5)], "musicbrainz")
         r = self.s.artist(a)
-        self.assertEqual((r["family"], r["color"], r["familyOrder"]), ("Rock", "#a3c9f5", 8))
+        self.assertEqual((r["family"], r["color"], r["familyOrder"]), ("Rock", "#ff2e88", 8))
 
     def test_migrates_v1_database(self):
         import sqlite3
