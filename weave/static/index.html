@@ -86,8 +86,8 @@ body.empty .brand .tagline { opacity: 1; }
 /* Grafo */
 .link { stroke: #634a7d; stroke-opacity: .7; }
 /* el color de la línea dice el motivo: miembros compartidos o influencia; el camino (dorado) manda */
-.link.member { stroke: #c9bbf6; stroke-width: 2.5; stroke-opacity: .9; }
-.link.influence { stroke: #9de3d0; stroke-width: 2; stroke-opacity: .9; }
+.link.member { stroke: #ff9e4a; stroke-width: 2.5; stroke-opacity: .9; }
+.link.influence { stroke: #2de2c8; stroke-width: 2; stroke-opacity: .9; }
 .link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
 #legend .why { display: inline-flex; align-items: center; gap: 5px; margin: 0 10px 2px 6px; color: var(--muted); }
 #legend .why b { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
@@ -147,10 +147,11 @@ body.empty .brand .tagline { opacity: 1; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = 'b0.3.12';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
+const VERSION = 'v0.3.12';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
+  ['v0.3.12', '27/11', 'oficial: lo de las betas 0.3.11 y 0.3.12; el fondo no se abre pero sus artistas se unen a la red; logo con la B de Bandora; icono de desplegar nuevo; relaciones en naranja (miembros) y turquesa (influencia)'],
   ['b0.3.12', '27/11', 'beta: ahora se llama Bandora; colores de atardecer neón con el rosa como principal; iconos nuevos; texto de la barra en rosa'],
-  ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo (tócalos) y pista que late hasta el primer despliegue'],
+  ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo y pista que late hasta el primer despliegue'],
   ['v0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes); /version b… para probar una beta'],
   ['v0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
   ['v0.3.8', '27/11', '/debug id enseña el identificador único de cada bola'],
@@ -179,7 +180,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
   next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
-  explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg>',
+  explore: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 12 12 3M12 12 19.8 7.5M12 12 19.8 16.5M12 12 12 21M12 12 4.2 16.5M12 12 4.2 7.5"/><g fill="#ffd23f"><circle cx="12" cy="12" r="3.6"/><circle cx="12" cy="3" r="2"/><circle cx="19.8" cy="7.5" r="2"/><circle cx="19.8" cy="16.5" r="2"/><circle cx="12" cy="21" r="2"/><circle cx="4.2" cy="16.5" r="2"/><circle cx="4.2" cy="7.5" r="2"/></g></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 
@@ -441,7 +442,7 @@ const ambient = (() => {
   const COLORS = ['#ff2e88', '#ff9e4a', '#8f5bff', '#2de2c8'];  // colores de la app: rosa, naranja, violeta, turquesa
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let dots = [], frame = 0, shown = false, last = 0;
-  // algunos puntos son artistas conocidos con su foto: tocarlos empieza el mapa por ellos (solo con red: sin foto no salen)
+  // algunos puntos son artistas conocidos con su foto (de adorno, no se abren) (solo con red: sin foto no salen)
   const STARS = ['Extremoduro', 'Rosalía', 'Queen', 'Bad Bunny', 'Nirvana', 'Estopa', 'Daft Punk', 'Bob Marley', 'Shakira', 'Metallica'];
   let pool = null;
   async function loadStars() {
@@ -482,8 +483,9 @@ const ambient = (() => {
     g.lineWidth = 1;
     for (let i = 0; i < dots.length; i++) for (let j = i + 1; j < dots.length; j++) {
       const a = dots[i], b = dots[j], d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d > LINK) continue;
-      g.globalAlpha = 0.5 * (1 - d / LINK); g.strokeStyle = '#ff2e88';  // conexiones rosas
+      const L = a.star || b.star ? LINK * 1.8 : LINK;  // los artistas tejen más lejos: se ven conectados
+      if (d > L) continue;
+      g.globalAlpha = 0.5 * (1 - d / L); g.strokeStyle = '#ff2e88';  // conexiones rosas
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
     for (const p of dots) {
@@ -513,7 +515,6 @@ const ambient = (() => {
   addEventListener('resize', () => { if (shown) size(); });
   return {
     spots: () => shown ? dots.filter(d => d.star).map(d => ({ x: d.x, y: d.y, r: d.r, id: d.star.id })) : [],
-    hit(x, y) { const p = this.spots().find(p => Math.hypot(p.x - x, p.y - y) < p.r + 8); return p ? p.id : null; },
     update() {  // visible solo con el mapa vacío, la barra sin texto y sin juego de espera
       const want = nodes.length === 0 && !$('q').value.trim() && !game.playing();
       document.body.classList.toggle('empty', want);  // lema y barra que escribe sola
@@ -796,7 +797,7 @@ function renderLegend() {
   $('legend').style.display = showLabels ? '' : 'none';
   $('legend').innerHTML = presentFamilies().map(({ name: g, color: c }) =>
     `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('')
-    + '<div><span class="why"><b style="background:#c9bbf6"></b>miembros</span><span class="why"><b style="background:#9de3d0"></b>influencia</span></div>';
+    + '<div><span class="why"><b style="background:#ff9e4a"></b>miembros</span><span class="why"><b style="background:#2de2c8"></b>influencia</span></div>';
   $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
     const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
   });
@@ -1301,8 +1302,6 @@ document.addEventListener('pointerdown', e => {  // tocar cualquier cosa fuera d
   if (!e.target.closest('.bar, #results')) $('results').innerHTML = '';
 }, true);
 svg.on('click', ev => {
-  const id = nodes.length ? null : ambient.hit(ev.clientX, ev.clientY);  // artista del fondo: empieza por él
-  if (id != null) return addOrigin({ id });
   closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
 document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionada
   if (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.target.tagName !== 'INPUT') { e.preventDefault(); return undo(); }

@@ -21,10 +21,8 @@ setTimeout(async () => {
     { let s = []; for (let i = 0; i < 60 && s.length < 3; i++) { await sleep(250); s = ambient.spots(); }
       ok('el fondo trae artistas con foto', s.length >= 3);
       const p = s[0];
-      document.getElementById('svg').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: p.x, clientY: p.y })); await sleep(2500);
-      ok('tocar un artista del fondo lo trae al mapa', nodes.length === 1 && nodes[0].id === p.id);
-      clearMap(); await sleep(900);
-      ok('sin mapa vuelve el lema', document.body.classList.contains('empty')); }
+      document.getElementById('svg').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: p.x, clientY: p.y })); await sleep(1500);
+      ok('los artistas del fondo no se abren', nodes.length === 0); }
     typeIn('Marea'); await sleep(2500);
     ok('el fondo se va al buscar', !$('ambient').classList.contains('on'));
     ok('busqueda', $('results').querySelectorAll('li').length > 0);

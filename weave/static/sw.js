@@ -4,7 +4,7 @@
 //   nada); sin conexión, la última copia.
 // - Lo demás de la app (D3, iconos): primero la caché.
 // - Fotos de artistas de Deezer: se guardan al verlas (hasta 500). Las canciones nunca (sus URLs caducan).
-const APP = 'weave-bands-app-1', PHOTOS = 'weave-bands-fotos', MAX_PHOTOS = 500;
+const APP = 'weave-bands-app-2', PHOTOS = 'weave-bands-fotos', MAX_PHOTOS = 500;
 const SHELL = ['./', 'index.html', 'data.js', 'd3.min.js', 'manifest.json', 'weave-icon.svg', 'app-icon.svg',
                'icon-192.png', 'icon-512.png', 'ayuda.html', 'data/weave.json'];
 const FRESH = ['./', 'index.html', 'data.js', 'data/weave.json'].map(p => new URL(p, self.registration.scope).pathname);
