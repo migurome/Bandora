@@ -1,9 +1,9 @@
 """Publica la app en GitHub Pages: exporta los datos y sube weave/static/ a la rama gh-pages del remoto indicado.
 La versión sale de `const VERSION` en index.html: «v0.3.10» es oficial y va a la raíz (las betas publicadas se
-conservan); «b0.3.11» es beta y va a su carpeta (…/weave-bands/b0.3.11/) sin tocar lo demás. Desde la app,
+conservan); «b0.3.11» es beta y va a su carpeta (…/Bandora/b0.3.11/) sin tocar lo demás. Desde la app,
 «/version b0.3.11» lleva a ella. La rama se rehace en cada publicación, sin historial. La app no lleva claves ni datos personales:
 solo la red de artistas exportada (data/weave.json).
-Uso:  python -I tools/publish.py <remoto>    p. ej.  python -I tools/publish.py https://github.com/<usuario>/weave-bands.git
+Uso:  python -I tools/publish.py <remoto>    p. ej.  python -I tools/publish.py https://github.com/migurome/Bandora.git
 Después, en GitHub: Settings → Pages → rama gh-pages. La app queda en https://<usuario>.github.io/<repositorio>/
 """
 import re
@@ -66,8 +66,8 @@ def main(remote: str) -> int:
         git("init", "-q", "-b", "gh-pages", cwd=out)
         git("add", "-A", cwd=out)
         # firma genérica: el repositorio de Pages es público y no debe llevar el correo del usuario
-        git("-c", "user.name=Weave bands", "-c", "user.email=weave-bands@users.noreply.github.com",
-            "commit", "-q", "-m", f"Publicar Weave bands {version}", cwd=out)
+        git("-c", "user.name=Bandora", "-c", "user.email=bandora@users.noreply.github.com",
+            "commit", "-q", "-m", f"Publicar Bandora {version}", cwd=out)
         git("push", "-q", "--force", remote, "gh-pages", cwd=out)
     print(f"Publicada {version} en la rama gh-pages de {remote}" + (f" (carpeta {version}/)" if target_dir(version) else ""))
     return 0

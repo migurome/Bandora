@@ -1206,7 +1206,7 @@ async function selfTest() {
   out.unshift(`${VERSION} · ${bad ? bad + ' fallos' : 'todo bien'} · sin conexión: ${navigator.serviceWorker?.controller ? 'lista' : 'no instalada'}`);
   $('results').innerHTML = out.map(x => `<li class="cmd">${esc(x)}</li>`).join('');
 }
-// Las betas viven en su carpeta junto a la oficial: …/weave-bands/b0.3.11/; «v» (o v0.3.10) es la de la raíz
+// Las betas viven en su carpeta junto a la oficial: …/Bandora/b0.3.11/; «v» (o v0.3.10) es la de la raíz
 const versionUrl = v => {
   const root = new URL(VERSION.startsWith('b') ? '../' : './', location.href);
   return v.startsWith('b') ? new URL(v + '/', root) : root;

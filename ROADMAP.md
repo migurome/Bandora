@@ -1,4 +1,4 @@
-# Weave Bands · Hoja de ruta
+# Bandora · Hoja de ruta
 
 ## Para qué es
 

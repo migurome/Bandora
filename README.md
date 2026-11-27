@@ -1,4 +1,4 @@
-# Weave bands
+# Bandora
 
 Explorador visual de música: escribes un artista, aparece su círculo y la red de grupos relacionados va
 creciendo a tu alrededor. Es una app de móvil (se instala desde el navegador) que funciona sola: los datos van
