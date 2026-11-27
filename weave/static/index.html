@@ -135,8 +135,9 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = '0.3.9';  // súbela al publicar (0.fase.n: Fase 3 → 0.3.x; la 1.0 aún no ha llegado) y apúntalo en LOG
+const VERSION = '0.3.10';  // súbela al publicar (0.fase.n: Fase 3 → 0.3.x; la 1.0 aún no ha llegado) y apúntalo en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
+  ['0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes)'],
   ['0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
   ['0.3.8', '27/11', '/debug id enseña el identificador único de cada bola'],
   ['0.3.7', '27/11', '/version; /debug oculto; corona a medida; «Fito y Fitipaldis» = «Fito & Fitipaldis»; miembros por su nombre artístico (UOHO)'],
@@ -1093,31 +1094,32 @@ const COMMANDS = [
   { usage: '/label <b>on</b>|<b>off</b>', fill: '/label ', re: /^\/labels?(?:\s+(on|off))?$/i,
     run: m => toggleLabels(m[1] ? m[1].toLowerCase() === 'on' : !showLabels) },
   { usage: '/clear', fill: '/clear', re: /^\/clear$/i, run: () => clearEverything() },
-  { usage: '/help', fill: '/help', re: /^\/(help|ayuda|\?)$/i, run: () => showHelp() },
+  { usage: '/help', fill: '/help', re: /^\/(?:help|ayuda|\?)(\s+-a)?$/i, run: m => showHelp(!!m[1]) },  // -a (oculto): también lo de depurar
   { usage: '/undo', fill: '/undo', re: /^\/undo$/i, run: () => undo() },
   { usage: '/save <b>nombre</b>', fill: '/save ', re: /^\/save\s+(.+)$/i, run: m => saveMap(m[1].trim()) },
   { usage: '/load <b>nombre</b>', fill: '/load ', re: /^\/load\s+(.+)$/i, run: m => loadMap(m[1].trim()) },
   { usage: '/version [log]', fill: '/version', re: /^\/version(\s+log)?$/i, run: m => m[1] ? showLog() : showVersion() },
-  { hidden: true, usage: '/debug', fill: '/debug ', re: /^\/debug(?:\s+(\w+)(?:\s+#?(\w+))?)?$/i,
+  { hidden: true, usage: '/debug pong|bobble|id [n]|test|off', fill: '/debug ', re: /^\/debug(?:\s+(\w+)(?:\s+#?(\w+))?)?$/i,
     run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
-      const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'id', 'off'].find(x => x.startsWith(w));
+      const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'id', 'test', 'off'].find(x => x.startsWith(w));
       if (!mode) return flashError();
+      if (mode === 'test') return selfTest();
       if (m[2] && mode !== 'id') return flashError();
       if (mode === 'id' || mode === 'off') { showIds = mode === 'id'; render(); }
       if (mode === 'id') return m[2] && addOrigin({ id: /^\d+$/.test(m[2]) ? +m[2] : m[2] });  // /debug id 8925 (o dz123): lo saca al mapa
       debugGame(mode === 'bubbles' ? 'bobble' : mode);
     } },
 ];
-// /debug pong|bobble|id: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
+// /debug pong|bobble|id|test: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
 let debugEnd = null, showIds = false;  // /debug id: el id único de cada bola, para cazar duplicados y cruces
 async function debugGame(mode) {
   if (debugEnd) { debugEnd(); debugEnd = null; await new Promise(r => setTimeout(r, 0)); }  // que acabe la anterior
   if (mode === 'off') return;
   game.start(mode); working(new Promise(r => { debugEnd = r; }));
 }
-function showCommands(q) {
+function showCommands(q, all = false) {
   const word = q.split(/\s+/)[0].toLowerCase();
-  const list = COMMANDS.filter(c => !c.hidden && c.fill.trim().startsWith(word));  // /debug funciona, pero no se anuncia
+  const list = COMMANDS.filter(c => (all || !c.hidden) && c.fill.trim().startsWith(word));  // /debug funciona, pero no se anuncia
   $('results').innerHTML = list.map((c, i) => `<li class="cmd" tabindex="0" data-i="${i}">${c.usage}</li>`).join('');
   $('results').querySelectorAll('li').forEach(li => li.onclick = () => {
     $('q').value = list[li.dataset.i].fill; $('results').innerHTML = ''; $('q').focus();
@@ -1128,11 +1130,30 @@ async function showVersion() {
   $('results').innerHTML = [`Weave bands ${VERSION}`, d ? `datos del ${day} · ${d.artists.toLocaleString('es')} artistas` : 'sin datos',
     navigator.onLine ? 'con conexión' : 'sin conexión'].map(t => `<li class="cmd">${esc(t)}</li>`).join('');
 }
+// /debug test: comprobaciones rápidas en el propio móvil, sin tocar el mapa (las completas: tools/smoke.py)
+async function selfTest() {
+  $('results').innerHTML = '<li class="cmd">probando…</li>';
+  const out = [], t = async (name, fn) => {
+    try { const r = await fn(); out.push(r === null ? `– ${name} (sin conexión)` : `${r ? 'ok' : 'MAL'} ${name}`); }
+    catch (e) { out.push(`MAL ${name}: ${e.message}`); }
+  };
+  let ext, marea;
+  await t('datos cargados', async () => (await Data.info()).artists > 1000);
+  await t('búsqueda', async () => { [ext] = await Data.search('Extremoduro'); [marea] = await Data.search('Marea'); return ext.name === 'Extremoduro' && !!marea; });
+  await t('ficha con relacionados', async () => (await Data.artist(ext.id)).related.length > 0);
+  await t('nombres con y/&/and iguales', () => Data.norm('Fito & Fitipaldis') === Data.norm('Fito y Fitipaldis'));
+  await t('camino entre dos artistas', async () => (await Data.path(ext.id, marea.id)).length >= 2);
+  await t('canciones de Deezer en vivo', async () => navigator.onLine ? (await Data.tracks(ext.id)).length > 0 : null);
+  await t('guardado en el móvil', () => { localStorage.setItem('weave-test', '1'); const v = localStorage.getItem('weave-test'); localStorage.removeItem('weave-test'); return v === '1'; });
+  const bad = out.filter(x => x.startsWith('MAL')).length;
+  out.unshift(`${VERSION} · ${bad ? bad + ' fallos' : 'todo bien'} · sin conexión: ${navigator.serviceWorker?.controller ? 'lista' : 'no instalada'}`);
+  $('results').innerHTML = out.map(x => `<li class="cmd">${esc(x)}</li>`).join('');
+}
 function showLog() {
   $('results').innerHTML = LOG.map(([v, day, what]) => `<li class="cmd">${esc(`${v} · ${day} · ${what}`)}</li>`).join('');
 }
-function showHelp() {  // todos los comandos (tocar uno lo escribe en la barra) y la página que lo explica todo
-  showCommands('/');
+function showHelp(all) {  // todos los comandos (tocar uno lo escribe en la barra) y la página que lo explica todo
+  showCommands('/', all);
   $('results').insertAdjacentHTML('beforeend', '<li class="cmd"><a href="ayuda.html">cómo funciona ›</a></li>');
 }
 function suggestMaps(q) {  // /load: los mapas guardados que empiezan por lo escrito
@@ -1181,6 +1202,9 @@ $('q').addEventListener('keydown', e => {
 $('play').onclick = footPlay;
 $('clear').innerHTML = ICON.clear;
 $('clear').onclick = clearEverything;
+document.addEventListener('pointerdown', e => {  // tocar cualquier cosa fuera de la barra cierra su submenú
+  if (!e.target.closest('.bar, #results')) $('results').innerHTML = '';
+}, true);
 svg.on('click', () => { closeAll(); $('tip').style.display = 'none'; });  // fondo: quita la selección y cierra el menú
 document.addEventListener('keydown', e => {  // Supr: quita la banda seleccionada
   if (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.target.tagName !== 'INPUT') { e.preventDefault(); return undo(); }

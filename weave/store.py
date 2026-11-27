@@ -231,6 +231,10 @@ class Store:
                 "related": [{"id": r["id"], "name": r["name"], "fans": r["fans"], "kind": KINDS[r["k"]]} for r in related
                             if r["k"] or not _minor_variant(a, r)]}
 
+    def delete(self, artist_id: int):
+        with self._write() as c:  # sus relaciones, alias e ids se van en cascada
+            c.execute("DELETE FROM artist WHERE id=?", (artist_id,))
+
     def search(self, text: str, limit=6) -> list[dict]:
         k = norm(text)
         if not k:

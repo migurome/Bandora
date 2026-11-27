@@ -21,7 +21,8 @@ class FakeDeezer:
 
     def artist(self, id):
         a = self._a(id, "artist")
-        return {"id": id, "name": a["name"], "fans": a.get("fans", 0), "picture": f"pic{id}", "link": f"https://deezer/{id}"}
+        return {"id": id, "name": a["name"], "fans": a.get("fans", 0), "picture": f"pic{id}", "link": f"https://deezer/{id}",
+                "albums": a.get("albums", 1)}
 
     def related(self, id, limit=25):
         a = self._a(id, "related")

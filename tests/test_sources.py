@@ -71,7 +71,7 @@ class DeezerTest(unittest.TestCase):
             "/artist/9148": {"id": 9148, "name": "Marea", "nb_fan": 53022, "picture_medium": "m.jpg", "link": "L"},
         })
         d = Deezer(f)
-        self.assertEqual(d.artist(9148), {"id": 9148, "name": "Marea", "fans": 53022, "picture": "m.jpg", "link": "L"})
+        self.assertEqual(d.artist(9148), {"id": 9148, "name": "Marea", "fans": 53022, "picture": "m.jpg", "link": "L", "albums": 1})
         self.assertEqual(d.top(9148), {"title": "Corazón de mimbre", "preview": "p.mp3"})
         self.assertEqual(d.album_genres(9148), ["alternativo", "rock"])
 

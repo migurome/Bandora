@@ -309,6 +309,25 @@ def enrich_pending(ingestor, limit=None, on_progress=None, which="lastfm") -> in
     return done
 
 
+def prune(ingestor, max_fans=100, on_progress=None) -> int:
+    """Borra las fichas vacías de Deezer (0 álbumes: sin canciones ni relacionadas) que se colaron antes del filtro
+    de resolve_name. Solo pregunta por las pequeñas: una ficha vacía no junta más de un puñado de fans."""
+    rows = ingestor.store.conn.execute("""SELECT a.id, s.ext_id FROM artist a JOIN source_id s ON s.artist_id = a.id
+                                          AND s.source = 'deezer' WHERE COALESCE(a.fans, 0) <= ?""", (max_fans,)).fetchall()
+    gone = 0
+    for i, (aid, ext) in enumerate(rows, 1):
+        try:
+            empty = ingestor.dz.artist(int(ext)).get("albums", 1) == 0
+        except (SourceError, OSError):
+            continue  # sin respuesta no se borra nada
+        if empty:
+            ingestor.store.delete(aid)
+            gone += 1
+        if on_progress:
+            on_progress(i, len(rows), gone)
+    return gone
+
+
 def _status(store):
     k = store.counts()
     lv = k["levels"]
@@ -328,6 +347,7 @@ def main(argv=None):
     lf.add_argument("--limit", type=int)
     wd = sub.add_parser("wikidata", help="añade las sinergias de Wikidata (miembros, influencias); reanudable")
     wd.add_argument("--limit", type=int)
+    sub.add_parser("prune", help="borra las fichas vacías de Deezer (0 álbumes) que haya en la base")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # la consola de Windows usa cp1252 por defecto
@@ -363,6 +383,12 @@ def main(argv=None):
             print(f"{chr(10)}Fin: {n} artistas.")
         except KeyboardInterrupt:
             print(chr(10) + "Interrumpido. Relanza «wikidata» para continuar.")
+    elif args.cmd == "prune":
+        try:
+            n = prune(ing, on_progress=lambda i, t, g: print(f"{chr(13)}revisadas {i}/{t} · borradas {g}", end="", flush=True))
+            print(f"{chr(10)}Fin: {n} fichas vacías borradas.")
+        except KeyboardInterrupt:
+            print(chr(10) + "Interrumpido. Relanza «prune» para continuar.")
     _status(store)
 
 

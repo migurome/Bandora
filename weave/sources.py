@@ -27,7 +27,7 @@ class Deezer:
     def artist(self, id) -> dict:
         a = self._get(f"/artist/{id}")
         return {"id": a["id"], "name": a["name"], "fans": a.get("nb_fan", 0), "picture": a.get("picture_medium"),
-                "link": a.get("link")}
+                "link": a.get("link"), "albums": a.get("nb_album", 1)}
 
     def related(self, id, limit=25) -> list[dict]:
         return [{"id": r["id"], "name": r["name"], "fans": r.get("nb_fan", 0)}

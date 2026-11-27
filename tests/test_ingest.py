@@ -2,7 +2,7 @@ import unittest
 
 from tests.fakes import FakeDeezer, FakeLastFm, FakeMusicBrainz, FakeWikidata
 from weave.db import connect
-from weave.ingest import Ingestor
+from weave.ingest import Ingestor, prune
 from weave.store import Store
 
 
@@ -150,6 +150,20 @@ class WikidataIngestTest(unittest.TestCase):
         dz.artists[6640568] = {"name": "IÑAKI ANTON", "fans": 148, "albums": 0}
         a = store.artist(ing.ensure_full(store.upsert_deezer(4163, "Extremoduro")))
         self.assertNotIn("IÑAKI ANTON", [r["name"] for r in a["related"]])
+
+    def test_prune_drops_empty_deezer_cards(self):
+        # «Bruce Springsteen & The E Street Band»: ficha de Deezer con 0 álbumes, sin canciones ni relacionadas
+        store, dz, mb, ing = world()
+        dz.artists[413108231] = {"name": "Bruce Springsteen & The E Street Band", "fans": 1, "albums": 0}
+        dz.artists[77] = {"name": "Grupo pequeño", "fans": 3, "albums": 2}
+        ext = store.upsert_deezer(4163, "Extremoduro", 110115)
+        ghost = store.upsert_deezer(413108231, "Bruce Springsteen & The E Street Band", 1)
+        small = store.upsert_deezer(77, "Grupo pequeño", 3)
+        store.set_related(ext, [ghost, small])
+        self.assertEqual(prune(ing), 1)
+        self.assertIsNone(store.artist(ghost))
+        self.assertEqual([r["id"] for r in store.artist(ext)["related"]], [small])  # el pequeño de verdad se queda
+        self.assertEqual(dz.calls["artist"], 2)  # Extremoduro tiene muchos fans: ni se pregunta
 
     def test_wikidata_again_replaces_old_links(self):
         syn = {"mbid": "mb-ia", "name": "Iñaki Antón", "names": ["Uoho", "Iñaki Antón"], "kind": "member"}

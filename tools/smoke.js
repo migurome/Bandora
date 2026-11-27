@@ -128,6 +128,19 @@ setTimeout(async () => {
     ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
     cmd('/version'); await sleep(400);
     ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /\d+\.\d{3} artistas/.test($('results').textContent));
+    $('q').value = '/'; $('q').dispatchEvent(new Event('input')); await sleep(200);
+    { const had = $('results').children.length;
+      document.querySelector('svg').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(100);
+      ok('tocar fuera cierra el submenú de la barra', had > 0 && $('results').children.length === 0); }
+    $('q').value = '';
+    cmd('/help -a'); await sleep(200);
+    { const items = [...$('results').querySelectorAll('li')];
+      ok('/help -a enseña también los comandos ocultos', items.some(li => li.textContent.startsWith('/debug')) && !!$('results').querySelector('a[href="ayuda.html"]')); }
+    cmd('/help'); await sleep(200);
+    ok('/help normal sigue sin /debug', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
+    { const n0 = nodes.length; cmd('/debug test'); await sleep(15000);
+      const li = [...$('results').querySelectorAll('li')].map(x => x.textContent);
+      ok('/debug test: pruebas en la web, todas bien y sin tocar el mapa', li.length > 4 && li.some(t => t.startsWith('ok ')) && !li.some(t => t.startsWith('MAL')) && nodes.length === n0); }
     cmd('/version log'); await sleep(300);
     { const li = [...$('results').querySelectorAll('li')];
       ok('/version log: cambios por versión, el último arriba', li.length > 5 && li[0].textContent.startsWith(VERSION) && /0\.1/.test(li.at(-1).textContent)); }
