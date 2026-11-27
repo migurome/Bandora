@@ -141,7 +141,7 @@ setTimeout(async () => {
     typeIn('/'); await sleep(200);
     ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
     cmd('/version'); await sleep(400);
-    ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /\d+\.\d{3} artistas/.test($('results').textContent));
+    ok('/version: versión de la app y de los datos', $('results').textContent.includes('Bandora ' + VERSION) && /\d+\.\d{3} artistas/.test($('results').textContent));
     $('q').value = '/'; $('q').dispatchEvent(new Event('input')); await sleep(200);
     { const had = $('results').children.length;
       document.querySelector('svg').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(100);

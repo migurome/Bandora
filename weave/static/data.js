@@ -1,4 +1,4 @@
-// Datos de Weave bands en el navegador, sin servidor: data/weave.json (python -m weave.export) para buscar,
+// Datos de Bandora en el navegador, sin servidor: data/weave.json (python -m weave.export) para buscar,
 // abrir fichas, desplegar y trazar caminos sin conexión. Con red, Deezer en vivo (JSONP: su API no deja llamarla
 // con fetch desde otra web) para las canciones (sus URLs caducan: nunca se guardan), los artistas que no están en
 // los datos (id «dz<id de Deezer>») y las relacionadas de quien no las tiene guardadas.

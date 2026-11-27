@@ -1,4 +1,4 @@
-// Service worker de Weave bands: la app y sus datos quedan en el móvil y funciona sin conexión.
+// Service worker de Bandora: la app y sus datos quedan en el móvil y funciona sin conexión.
 // - Al instalarse guarda la página, data.js, D3, los iconos y los datos (data/weave.json).
 // - Página, data.js y datos: primero la red, preguntando si cambiaron (si no, el servidor contesta 304 y no se baja
 //   nada); sin conexión, la última copia.

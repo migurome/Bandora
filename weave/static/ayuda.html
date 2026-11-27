@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cómo funciona · Weave bands</title>
+<title>Cómo funciona · Bandora</title>
 <link rel="icon" href="weave-icon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#140b1f">
 <style>
-:root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
+:root { color-scheme: dark; --bg:#140b1f; --panel:#1f1230; --line:#3a2550; --text:#f8eef8; --muted:#b09cc0; --accent:#ff2e88; --accent2:#ff9e4a; }
 * { box-sizing: border-box; }
 html { background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", sans-serif; }
 body { margin: 0 auto; max-width: 760px; padding: 28px 20px 80px; }
@@ -15,7 +15,8 @@ a { color: var(--accent); }
 header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
 header img { width: 56px; height: 56px; }
 h1 { margin: 0; font-size: 30px; line-height: 1.1; }
-h1 span { font-weight: 400; color: var(--accent); }
+h1 b { font-weight: 800; font-style: italic; background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lead { color: var(--muted); font-size: 18px; margin: 10px 0 24px; }
 .open { display: inline-block; background: var(--accent); color: #111; font-weight: 700; text-decoration: none; padding: 10px 20px; border-radius: 999px; }
 nav { margin: 26px 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -54,7 +55,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: 14px; border-top: 1px
 <body>
 <header>
   <img src="weave-icon.svg" alt="">
-  <h1>Weave <span>bands</span></h1>
+  <h1><b>Bandora</b></h1>
 </header>
 <p class="lead">Un mapa de grupos que se teje a mano: buscas un artista, lo despliegas y aparecen los que se le parecen.
 Así, de círculo en círculo, se descubre música nueva.</p>
@@ -94,7 +95,7 @@ El círculo se puede arrastrar para colocarlo; el mapa se mueve arrastrando el f
 <h2 id="desplegar">Desplegar</h2>
 <figure>
   <svg viewBox="0 0 360 170" width="360" role="img" aria-label="Un artista desplegado en cinco relacionados">
-    <g stroke="#4a5060" stroke-width="2"><path d="M180 85 90 30M180 85 70 110M180 85 270 30M180 85 290 110"/></g>
+    <g stroke="#634a7d" stroke-width="2"><path d="M180 85 90 30M180 85 70 110M180 85 270 30M180 85 290 110"/></g>
     <path d="M180 85 180 155" stroke="#c9bbf6" stroke-width="3"/>
     <circle cx="180" cy="85" r="30" fill="#a3c9f5"/>
     <circle cx="90" cy="30" r="17" fill="#a3c9f5"/><circle cx="70" cy="110" r="17" fill="#f5a3a3"/>
@@ -130,8 +131,8 @@ conexiones (o no hay más), su botón se apaga.</p>
   </ul>
   <p>Y el color de la línea, por qué están unidos:</p>
   <ul class="swatches lines">
-    <li><i style="background:#4a5060"></i>Suenan parecido</li><li><i style="background:#c9bbf6"></i>Comparten miembros</li>
-    <li><i style="background:#9de3d0"></i>Uno influyó en el otro</li><li><i style="background:#f2c94c"></i>Camino entre dos</li>
+    <li><i style="background:#634a7d"></i>Suenan parecido</li><li><i style="background:#c9bbf6"></i>Comparten miembros</li>
+    <li><i style="background:#9de3d0"></i>Uno influyó en el otro</li><li><i style="background:#ff2e88"></i>Camino entre dos</li>
   </ul>
   <p style="margin-bottom:0">Con <code>/label on</code> aparece la leyenda abajo a la izquierda; tocando una familia la ocultas o la vuelves a mostrar.</p>
 </div>
@@ -164,7 +165,7 @@ el círculo que suena se oscurece y late. El botón de abajo pausa y reanuda. Si
 un Pong con el círculo y su menú, o burbujas de colores. Se maneja con el dedo o el ratón y desaparece en cuanto llega el resultado.</p>
 
 <h2 id="movil">En el móvil</h2>
-<p>Weave bands es una web que se instala como app. Abre la página en el navegador del móvil y elige
+<p>Bandora es una web que se instala como app. Abre la página en el navegador del móvil y elige
 <b>Añadir a pantalla de inicio</b> (o <b>Instalar app</b>). Desde entonces se abre a pantalla completa con su icono amarillo.</p>
 <p>Funciona <b>sin conexión</b> con todo lo guardado: buscar entre unos 43.000 artistas, desplegar los que tienen relacionados,
 los caminos y tus mapas. Lo que necesita red es la música, los artistas que no están en los datos y las fotos que aún no has visto.
@@ -178,6 +179,6 @@ Cuando hay una versión nueva, basta cerrar la app y volver a abrirla.</p>
 </ul>
 <p>Todo se reúne en un archivo que viaja con la app. Tus mapas guardados se quedan en tu dispositivo.</p>
 
-<footer>Weave bands · <a href="./">volver a la app</a></footer>
+<footer>Bandora · <a href="./">volver a la app</a></footer>
 </body>
 </html>

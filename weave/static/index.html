@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Weave bands</title>
+<title>Bandora</title>
 <link rel="icon" href="weave-icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#140b1f">
 <script src="d3.min.js"></script>
 <script src="data.js"></script>
 <style>
-:root { color-scheme: dark; --bg:#0f1115; --panel:#181b21; --line:#2a2e36; --text:#eceef2; --muted:#9aa0aa; --accent:#f2c94c; }
+:root { color-scheme: dark; --bg:#140b1f; --panel:#1f1230; --line:#3a2550; --text:#f8eef8; --muted:#b09cc0; --accent:#ff2e88; --accent2:#ff9e4a; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
 #svg { display: block; width: 100vw; height: 100vh; cursor: grab; position: relative; z-index: 1; }
@@ -20,12 +20,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #ambient.on { opacity: 1; }
 #svg:active { cursor: grabbing; }
 button { background: var(--line); color: var(--text); border: 0; font: inherit; cursor: pointer; }
-button:hover { background: #3a3f49; }
+button:hover { background: #4b2f66; }
 
 /* Terminal: artistas y comandos (/from A to B, /label on|off, /clear) */
 .ui { position: fixed; top: 12px; left: 16px; right: 16px; z-index: 3; }
 .brand { margin: 0 0 8px 6px; font: 700 20px/1 system-ui, "Segoe UI", sans-serif; letter-spacing: .2px; user-select: none; }
-.brand span { font-weight: 400; color: var(--accent); }
+.brand b { font-weight: 800; font-style: italic; letter-spacing: .3px; padding-right: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 /* lema: solo con el mapa vacío (body.empty) */
 .brand .tagline { margin-left: 10px; font: 400 12px/1 system-ui, "Segoe UI", sans-serif; color: var(--muted); opacity: 0; transition: opacity .7s; white-space: nowrap; }
 body.empty .brand .tagline { opacity: 1; }
@@ -68,7 +69,7 @@ body.empty .brand .tagline { opacity: 1; }
 #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* Logo de carga: grande en el centro con el mapa vacío, pequeño en la barra si ya hay bandas */
-/* Marca: «weave bands» siempre encima de la barra, cada letra en un color de familia */
+/* Marca: «Bandora» encima de la barra, en degradado de atardecer (rosa → naranja) */
 /* buscando: «searching» en amarillo, aparece y se desvanece (nada más en la barra) */
 .ui .bar .searching { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: var(--accent);
   font: 14px ui-monospace, 'Cascadia Mono', Consolas, monospace; pointer-events: none; opacity: 0; }
@@ -83,7 +84,7 @@ body.empty .brand .tagline { opacity: 1; }
 @keyframes pop { from { opacity: 0; transform: scale(.4); } }
 
 /* Grafo */
-.link { stroke: #4a5060; stroke-opacity: .7; }
+.link { stroke: #634a7d; stroke-opacity: .7; }
 /* el color de la línea dice el motivo: miembros compartidos o influencia; el camino (dorado) manda */
 .link.member { stroke: #c9bbf6; stroke-width: 2.5; stroke-opacity: .9; }
 .link.influence { stroke: #9de3d0; stroke-width: 2; stroke-opacity: .9; }
@@ -96,11 +97,11 @@ body.empty .brand .tagline { opacity: 1; }
 .link.off { opacity: .04; }
 .far .node text { display: none; }
 /* sin foto: bola con brillo de cristal y el nombre dentro */
-.node .inner { fill: #0f1115; stroke: none; font-weight: 700; pointer-events: none; user-select: none; }
+.node .inner { fill: #140b1f; stroke: none; font-weight: 700; pointer-events: none; user-select: none; }
 .node .gloss { pointer-events: none; }
 .node.playing .inner { opacity: .35; }
 .node text { pointer-events: none; user-select: none; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
-.node text.dbgid { font: 11px ui-monospace, monospace; fill: #e0569b; }
+.node text.dbgid { font: 11px ui-monospace, monospace; fill: #2de2c8; }
 .far .node text.dbgid { display: inline; }  /* en debug se ven aunque se aleje */
 .node .dot, .node clipPath circle { transition: r .2s; }
 .node .pic { transition: filter .3s; }
@@ -132,7 +133,7 @@ body.empty .brand .tagline { opacity: 1; }
 </head>
 <body>
 <div class="ui">
-  <div class="brand">Weave <span>bands</span><span class="tagline">busca un grupo y descubre otros parecidos</span></div>
+  <div class="brand"><b>Bandora</b><span class="tagline">busca un grupo y descubre otros parecidos</span></div>
   <div class="bar"><span class="searching" role="status">searching</span><input id="q" autocomplete="off" spellcheck="false" aria-label="Artista o comando (/from A to B, /label, /clear)"></div>
   <ul id="results"></ul>
 </div>
@@ -146,8 +147,9 @@ body.empty .brand .tagline { opacity: 1; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = 'b0.3.11';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
+const VERSION = 'b0.3.12';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
+  ['b0.3.12', '27/11', 'beta: ahora se llama Bandora; colores de atardecer neón con el rosa como principal; iconos nuevos'],
   ['b0.3.11', '27/11', 'beta: la barra escribe ejemplos, lema bajo el nombre, artistas con foto en el fondo (tócalos) y pista que late hasta el primer despliegue'],
   ['v0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes); /version b… para probar una beta'],
   ['v0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
@@ -218,7 +220,7 @@ let busyCount = 0;
 const game = (() => {
   const cv = document.createElement('canvas'); cv.id = 'game'; document.body.appendChild(cv);
   const g = cv.getContext('2d'), TOP = 100, BOTTOM = 80;
-  const Y = '#f2c94c', DARK = '#0f1115', EDGE = '#9aa0aa', TEXT = '#eceef2';
+  const Y = '#ff2e88', DARK = '#140b1f', EDGE = '#b09cc0', TEXT = '#f8eef8';
   const SPOTIFY = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg>';
   const MENU = [ICON.explore, ICON.crown, ICON.play, ICON.next, ICON.trash, SPOTIFY];  // el menú del círculo, en su orden
   const img = (svg, color) => {  // icono SVG → imagen para el lienzo, en el color pedido
@@ -436,7 +438,7 @@ const game = (() => {
 const ambient = (() => {
   const cv = document.createElement('canvas'); cv.id = 'ambient'; document.body.prepend(cv);
   const g = cv.getContext('2d'), LINK = 130;
-  const COLORS = ['#f2c94c', '#9aa0aa', '#9aa0aa'];  // colores de la app: amarillo y gris
+  const COLORS = ['#ff2e88', '#ff9e4a', '#8f5bff', '#2de2c8'];  // colores de la app: rosa, naranja, violeta, turquesa
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let dots = [], frame = 0, shown = false, last = 0;
   // algunos puntos son artistas conocidos con su foto: tocarlos empieza el mapa por ellos (solo con red: sin foto no salen)
@@ -462,7 +464,7 @@ const ambient = (() => {
       if (have.has(s.id)) continue;
       have.add(s.id);
       dots.push({ x: 30 + Math.random() * (innerWidth - 60), y: 140 + Math.random() * Math.max(40, innerHeight - 260), r: 20,
-        vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, c: '#f2c94c', star: s });
+        vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, c: '#ff2e88', star: s });
     }
   }
   function size() {
@@ -481,7 +483,7 @@ const ambient = (() => {
     for (let i = 0; i < dots.length; i++) for (let j = i + 1; j < dots.length; j++) {
       const a = dots[i], b = dots[j], d = Math.hypot(a.x - b.x, a.y - b.y);
       if (d > LINK) continue;
-      g.globalAlpha = 0.5 * (1 - d / LINK); g.strokeStyle = '#f2c94c';  // conexiones amarillas
+      g.globalAlpha = 0.5 * (1 - d / LINK); g.strokeStyle = '#ff2e88';  // conexiones rosas
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
     for (const p of dots) {
@@ -493,8 +495,8 @@ const ambient = (() => {
       if (!p.star) continue;
       g.save(); g.globalAlpha = 0.85; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.clip();
       g.drawImage(p.star.img, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); g.restore();
-      g.globalAlpha = 0.8; g.strokeStyle = '#f2c94c'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.stroke();
-      g.globalAlpha = 0.75; g.fillStyle = '#9aa0aa'; g.fillText(p.star.name, p.x, p.y + p.r + 13);
+      g.globalAlpha = 0.8; g.strokeStyle = '#ff2e88'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.stroke();
+      g.globalAlpha = 0.75; g.fillStyle = '#b09cc0'; g.fillText(p.star.name, p.x, p.y + p.r + 13);
     }
     g.globalAlpha = 1;
   }
@@ -1206,7 +1208,7 @@ function showCommands(q, all = false) {
 }
 async function showVersion() {
   const d = await Data.info().catch(() => null), day = d && new Date(d.version).toLocaleDateString('es');
-  $('results').innerHTML = [`Weave bands ${VERSION}`, d ? `datos del ${day} · ${d.artists.toLocaleString('es')} artistas` : 'sin datos',
+  $('results').innerHTML = [`Bandora ${VERSION}`, d ? `datos del ${day} · ${d.artists.toLocaleString('es')} artistas` : 'sin datos',
     navigator.onLine ? 'con conexión' : 'sin conexión'].map(t => `<li class="cmd">${esc(t)}</li>`).join('');
 }
 // /debug test: comprobaciones rápidas en el propio móvil, sin tocar el mapa (las completas: tools/smoke.py)

@@ -65,7 +65,7 @@ class ServerTest(unittest.TestCase):
 
     def test_page_is_served(self):
         with urllib.request.urlopen(self.base + "/", timeout=10) as r:
-            self.assertIn("<title>Weave bands</title>", r.read().decode("utf-8"))
+            self.assertIn("<title>Bandora</title>", r.read().decode("utf-8"))
 
     def test_path_endpoint_offline(self):
         ids = {n: self.store.upsert_deezer(n, name) for n, name in
