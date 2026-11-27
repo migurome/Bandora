@@ -122,7 +122,7 @@ setTimeout(async () => {
     typeIn('/'); await sleep(200);
     ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
     cmd('/version'); await sleep(400);
-    ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /42\.?\d{3} artistas/.test($('results').textContent));
+    ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /\d+\.\d{3} artistas/.test($('results').textContent));
     $('results').innerHTML = '';
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);

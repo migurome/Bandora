@@ -133,7 +133,7 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = '3.6';  // súbela al publicar cambios (Fase 3 → 3.x)
+const VERSION = '3.7';  // súbela al publicar cambios (Fase 3 → 3.x)
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/(?<=\w)(?:\s*[&+]\s*|\s+(?:and|y|e|et|und)\s+)(?=\w)/g, ' ').replace(/[^a-z0-9]+/g, '');  // misma regla que weave/text.py
