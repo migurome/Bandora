@@ -90,8 +90,6 @@ body.empty .brand .tagline { opacity: 1; }
 .link.member { stroke: #ff9e4a; stroke-width: 2.5; stroke-opacity: .9; }
 .link.influence { stroke: #2de2c8; stroke-width: 2; stroke-opacity: .9; }
 .link.path { stroke: var(--accent); stroke-width: 3; stroke-opacity: .9; }
-#legend .why { display: inline-flex; align-items: center; gap: 5px; margin: 0 10px 2px 6px; color: var(--muted); }
-#legend .why b { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
 .node { cursor: pointer; }
 .node, .link { transition: opacity .25s; }
 .node.off { opacity: .07; pointer-events: none; }
@@ -148,8 +146,9 @@ body.empty .brand .tagline { opacity: 1; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = 'v0.3.13';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
+const VERSION = 'b0.3.14';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
+  ['b0.3.14', '27/11', 'beta: la B del botón de desplegar va oscura y entera, con nudos turquesa, naranja y violeta; los botones del círculo ya no lo pisan; la leyenda solo lleva los estilos'],
   ['v0.3.13', '27/11', 'oficial: lo de la beta 0.3.13 (botón de desplegar con la B, familias en colores neón, /tag)'],
   ['b0.3.13', '27/11', 'beta: el botón de desplegar es más grande y lleva la B de Bandora delante de una red irregular; familias con los colores de atardecer neón (rock rosa, pop amarillo, electrónica turquesa…); /label pasa a ser /tag y en el móvil la leyenda ya no queda detrás de los botones'],
   ['v0.3.12', '27/11', 'oficial: lo de las betas 0.3.11 y 0.3.12; el fondo no se abre pero sus artistas se unen a la red; logo con la B de Bandora; icono de desplegar nuevo; relaciones en naranja (miembros) y turquesa (influencia)'],
@@ -183,7 +182,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
   next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg>',
-  explore: '<svg viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M12 12 3 3.5M12 12 21.5 6M12 12 22 17.5M12 12 14.5 22.5M12 12 2 15.5M3 3.5 1.5 9"/></g><g fill="#ffd23f" stroke="currentColor" stroke-width="1"><circle cx="3" cy="3.5" r="2.2"/><circle cx="21.5" cy="6" r="1.6"/><circle cx="22" cy="17.5" r="2"/><circle cx="14.5" cy="22.5" r="1.4"/><circle cx="2" cy="15.5" r="1.7"/><circle cx="1.5" cy="9" r="1.1"/></g><text x="12.3" y="17.6" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="16" font-weight="800" font-style="italic" fill="currentColor" stroke="#ff2e88" stroke-width="2.4" paint-order="stroke">B</text></svg>',
+  explore: '<svg viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M12 12 4 4.5M12 12 20.5 5.5M12 12 21 17M12 12 14 21.3M12 12 3.2 15.5M4 4.5 2.6 9.6"/></g><g stroke="currentColor" stroke-width="1"><circle cx="4" cy="4.5" r="2" fill="#2de2c8"/><circle cx="20.5" cy="5.5" r="1.6" fill="#ff9e4a"/><circle cx="21" cy="17" r="1.9" fill="#a77bff"/><circle cx="14" cy="21.3" r="1.5" fill="#2de2c8"/><circle cx="3.2" cy="15.5" r="1.7" fill="#ff9e4a"/><circle cx="2.6" cy="9.6" r="1.2" fill="#a77bff"/></g><text x="12.3" y="17.6" text-anchor="middle" style="display:inline;font:italic 800 16px Segoe UI,system-ui,sans-serif;fill:currentColor;stroke:#ff2e88;stroke-width:2.4px;paint-order:stroke">B</text></svg>',
   clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 
@@ -799,8 +798,7 @@ function fitIfNeeded() {
 function renderLegend() {
   $('legend').style.display = showLabels ? '' : 'none';
   $('legend').innerHTML = presentFamilies().map(({ name: g, color: c }) =>
-    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('')
-    + '<div><span class="why"><b style="background:#ff9e4a"></b>miembros</span><span class="why"><b style="background:#2de2c8"></b>influencia</span></div>';
+    `<button data-g="${esc(g)}" aria-pressed="${!hidden.has(g)}"><i style="background:${esc(c)}"></i>${esc(g)}</button>`).join('');
   $('legend').querySelectorAll('button').forEach(b => b.onclick = () => {
     const g = b.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); sfx.select(); render();
   });
@@ -865,7 +863,7 @@ function renderMenus(all) {
     .attr('transform', o => {
       // separación fija en píxeles por el arco (no en grados): en círculos pequeños el arco se abre o se aleja
       const i = OPTS.findIndex(x => x.key === o.key), last = OPTS.length - 1;
-      const R = Math.max(radius(o.d) + 24, OPT_GAP * last / Math.PI);  // como mucho medio círculo
+      const R = Math.max(radius(o.d) + OPT_R + 10, OPT_GAP * last / Math.PI);  // sin pisar el círculo ni su aro  // como mucho medio círculo
       const a = Math.PI / 2 + (last / 2 - i) * OPT_GAP / R;  // centrado abajo, de izquierda a derecha
       return `translate(${R * Math.cos(a)},${R * Math.sin(a)})`;
     })
