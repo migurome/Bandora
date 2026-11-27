@@ -92,6 +92,20 @@ class StoreTest(unittest.TestCase):
         self.s.set_related(a, [z, y], source="lastfm", weights=[0.9, 0.2])
         self.assertEqual([r["id"] for r in self.s.artist(a)["related"]], [z, y, x])  # y está en las dos fuentes: supera a x
 
+    def test_related_skips_minor_variant_of_itself(self):
+        # «Bruce Springsteen & The E Street Band» (1 fan) no es otro grupo: no gasta un hueco de los relacionados
+        a = self.s.upsert_deezer(1, "Bruce Springsteen", 1_800_000)
+        v = self.s.upsert_deezer(2, "Bruce Springsteen & The E Street Band", 1)
+        band = self.s.upsert_deezer(3, "Tom Petty and the Heartbreakers", 235_000)
+        tp = self.s.upsert_deezer(4, "Tom Petty", 118_000)  # el grupo de verdad, con peso propio, sí se queda
+        x = self.s.upsert_deezer(5, "John Mellencamp", 900_000)
+        self.s.set_related(a, [v, x], source="lastfm", weights=[1.0, 0.6])
+        self.s.set_related(x, [v], source="lastfm", weights=[0.6])  # desde otro artista sí sale
+        self.s.set_related(tp, [band])
+        self.assertEqual([r["id"] for r in self.s.artist(a)["related"]], [x])
+        self.assertEqual([r["id"] for r in self.s.artist(x)["related"]], [v])
+        self.assertEqual([r["id"] for r in self.s.artist(tp)["related"]], [band])
+
     def test_related_lastfm_only(self):
         a, x, y = (self.s.upsert_deezer(i, n) for i, n in [(1, "A"), (2, "X"), (3, "Y")])
         self.s.set_related(a, [y, x], source="lastfm", weights=[0.3, 0.8])

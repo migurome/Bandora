@@ -1,4 +1,5 @@
 """Almacén de artistas: lecturas, escrituras e identidad. Una conexión compartida protegida por un cerrojo."""
+import re
 import threading
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -227,7 +228,8 @@ class Store:
                 "family": fam, "color": color_of(fam), "familyOrder": order_of(fam),
                 "genres": genres, "country": a["country"], "preview": a["preview"],
                 "previewTitle": a["preview_title"], "level": a["level"],
-                "related": [{"id": r["id"], "name": r["name"], "fans": r["fans"], "kind": KINDS[r["k"]]} for r in related]}
+                "related": [{"id": r["id"], "name": r["name"], "fans": r["fans"], "kind": KINDS[r["k"]]} for r in related
+                            if r["k"] or not _minor_variant(a, r)]}
 
     def search(self, text: str, limit=6) -> list[dict]:
         k = norm(text)
@@ -236,6 +238,19 @@ class Store:
         rows = self._read("""SELECT DISTINCT a.id, a.name, a.fans, a.picture FROM alias al JOIN artist a ON a.id = al.artist_id
                              WHERE al.norm LIKE ? || '%' ORDER BY a.level = 2 DESC, a.fans DESC LIMIT ?""", (k, limit))
         return [dict(r) for r in rows]
+
+
+_JOIN = r"\s*(?:&|\+|,|and\b|y\b|e\b|with\b|con\b|feat|ft\.)"
+
+
+def _minor_variant(a, b) -> bool:
+    """«X & otros» frente a X, cuando uno de los dos apenas tiene fans: es el mismo artista (con su banda o en un dúo
+    puntual), no un descubrimiento. Si los dos pesan (Tom Petty / Tom Petty and the Heartbreakers) se queda."""
+    x, y = a["name"].strip(), b["name"].strip()
+    if not (re.match(re.escape(x) + _JOIN, y, re.I) or re.match(re.escape(y) + _JOIN, x, re.I)):
+        return False
+    fx, fy = a["fans"] or 0, b["fans"] or 0
+    return min(fx, fy) < 0.1 * max(fx, fy, 1)
 
 
 def _merge(c, keep: int, drop: int) -> int:

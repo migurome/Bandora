@@ -128,7 +128,14 @@ setTimeout(async () => {
     ok('/debug no sale en la lista de comandos', ![...$('results').querySelectorAll('li')].some(li => li.textContent.startsWith('/debug')));
     cmd('/version'); await sleep(400);
     ok('/version: versión de la app y de los datos', $('results').textContent.includes('Weave bands ' + VERSION) && /\d+\.\d{3} artistas/.test($('results').textContent));
+    cmd('/version log'); await sleep(300);
+    { const li = [...$('results').querySelectorAll('li')];
+      ok('/version log: cambios por versión, el último arriba', li.length > 5 && li[0].textContent.startsWith(VERSION) && /0\.1/.test(li.at(-1).textContent)); }
     $('results').innerHTML = '';
+    { const [r] = await Data.search('Extremoduro'); cmd('/debug id ' + r.id); await sleep(800);
+      ok('/debug id <número> saca ese artista al mapa', nodes.some(n => n.id === r.id) && !$('q').classList.contains('err'));
+      cmd('/debug id 999999999'); await sleep(800); ok('/debug id con un id que no existe: error', $('q').classList.contains('err')); }
+    cmd('/debug off'); await sleep(300);
     cmd('/form x'); await sleep(200); ok('comando erróneo', $('q').classList.contains('err'));
     cmd('/from Marea to Michael Jackson'); await sleep(25000);
     ok('camino', nodes.length >= 3 && links.every(l => l.path));  // la longitud depende de los datos
