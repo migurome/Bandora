@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona · Bandora</title>
+<link rel="icon" href="weave-icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#140b1f">
+<style>
+:root { color-scheme: dark; --bg:#140b1f; --panel:#1f1230; --line:#3a2550; --text:#f8eef8; --muted:#b09cc0; --accent:#ff2e88; --accent2:#ff9e4a; }
+* { box-sizing: border-box; }
+html { background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", sans-serif; }
+body { margin: 0 auto; max-width: 760px; padding: 28px 20px 80px; }
+a { color: var(--accent); }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+header img { width: 56px; height: 56px; }
+h1 { margin: 0; font-size: 30px; line-height: 1.1; }
+h1 b { font-weight: 800; font-style: italic; background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lead { color: var(--muted); font-size: 18px; margin: 10px 0 24px; }
+.open { display: inline-block; background: var(--accent); color: #111; font-weight: 700; text-decoration: none; padding: 10px 20px; border-radius: 999px; }
+nav { margin: 26px 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+nav a { text-decoration: none; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 14px; }
+nav a:hover { color: var(--text); border-color: var(--accent); }
+h2 { margin: 44px 0 10px; font-size: 22px; scroll-margin-top: 16px; }
+h2::before { content: '› '; color: var(--accent); }
+p, li { color: #d4d7dd; }
+code, kbd, .cmd { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 14px; }
+code { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--text); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 14px 0; }
+figure { margin: 16px 0; text-align: center; }
+figure svg { max-width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; padding: 0; list-style: none; }
+.menu li { display: flex; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.ico { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); border: 1.5px solid var(--line); color: var(--text); }
+.ico.primary { background: var(--accent); border-color: var(--accent); color: #111; }
+.ico svg { width: 22px; height: 22px; }
+.menu b { display: block; color: var(--text); }
+.menu span { font-size: 14px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+td { padding: 9px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+td:first-child { white-space: nowrap; }
+.cmd { color: var(--muted); }
+.cmd b { color: var(--accent); font-weight: 600; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0; list-style: none; font-size: 14px; }
+.swatches li { display: flex; align-items: center; gap: 6px; }
+.swatches i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.lines li i { width: 26px; height: 4px; border-radius: 2px; }
+code { overflow-wrap: anywhere; }
+@media (max-width: 520px) { td { display: block; border: 0; padding: 2px 8px; } td:first-child { border-top: 1px solid var(--line); padding-top: 10px; } }
+footer { margin-top: 56px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="weave-icon.svg" alt="">
+  <h1><b>Bandora</b></h1>
+</header>
+<p class="lead">Un mapa de grupos que se teje a mano: buscas un artista, lo despliegas y aparecen los que se le parecen.
+Así, de círculo en círculo, se descubre música nueva.</p>
+<a class="open" href="./">Abrir la app</a>
+
+<nav>
+  <a href="#buscar">Buscar</a><a href="#menu">El menú</a><a href="#desplegar">Desplegar</a><a href="#unir">Unir dos</a>
+  <a href="#colores">Colores</a><a href="#musica">Música</a><a href="#mapas">Deshacer y guardar</a>
+  <a href="#comandos">Comandos</a><a href="#movil">En el móvil</a><a href="#datos">Los datos</a>
+</nav>
+
+<h2 id="buscar">Buscar</h2>
+<p>Todo empieza en la barra. Escribe el nombre de un grupo y elige uno de la lista (o pulsa <kbd>Intro</kbd> para quedarte
+con el primero). El artista entra grande en el centro del mapa, listo para desplegarse.</p>
+<p>Puedes buscar más artistas: cada uno entra como un origen nuevo en el mismo mapa. Si la barra tiembla en rojo, es que
+algo no ha salido (no lo encuentra, no hay conexión, el comando está mal escrito).</p>
+
+<h2 id="menu">El círculo y su menú</h2>
+<p>Toca un círculo para abrir su menú, un arco de botones por debajo. Toca el fondo para cerrarlo.
+El círculo se puede arrastrar para colocarlo; el mapa se mueve arrastrando el fondo y se acerca o aleja con la rueda o con dos dedos.</p>
+<ul class="menu">
+  <li><div class="ico primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M9 12h6.5M8.5 10.5l7-4.5M8.5 13.5l7 4.5"/></svg></div>
+    <div><b>Desplegar</b><span>Trae sus relacionados. Arrastrándolo, une con otro círculo.</span></div></li>
+  <li><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 18h18l1-11-5 4-5-7-5 7-5-4z"/></svg></div>
+    <div><b>Corona</b><span>Favorito: sobrevive al primer ✕.</span></div></li>
+  <li><div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></div>
+    <div><b>Reproducir</b><span>Sus canciones más escuchadas (un fragmento de cada una).</span></div></li>
+  <li><div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L15 14v4.5a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0V10L6.5 4.64A1 1 0 0 0 5 5.5z"/></svg></div>
+    <div><b>Siguiente</b><span>Pasa a la siguiente canción.</span></div></li>
+  <li><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></div>
+    <div><b>Quitar</b><span>Se va del mapa con los que solo colgaban de él.</span></div></li>
+  <li><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1ed760"/><g fill="none" stroke="#111" stroke-linecap="round"><path d="M6.5 9.2c3.8-1.2 7.9-.9 11 .9" stroke-width="2"/><path d="M7.2 12.6c3.1-.9 6.3-.6 8.9.8" stroke-width="1.7"/><path d="M7.8 15.7c2.4-.6 4.8-.4 6.8.6" stroke-width="1.4"/></g></svg></div>
+    <div><b>Spotify</b><span>Lo busca en Spotify (en Android abre la app).</span></div></li>
+</ul>
+<p>Con ratón, al pasar por encima de un círculo aparece su nombre y su estilo. Los artistas sin foto llevan el nombre dentro de la bola.</p>
+
+<h2 id="desplegar">Desplegar</h2>
+<figure>
+  <svg viewBox="0 0 360 170" width="360" role="img" aria-label="Un artista desplegado en cinco relacionados">
+    <g stroke="#634a7d" stroke-width="2"><path d="M180 85 90 30M180 85 70 110M180 85 270 30M180 85 290 110"/></g>
+    <path d="M180 85 180 155" stroke="#c9bbf6" stroke-width="3"/>
+    <circle cx="180" cy="85" r="30" fill="#a3c9f5"/>
+    <circle cx="90" cy="30" r="17" fill="#a3c9f5"/><circle cx="70" cy="110" r="17" fill="#f5a3a3"/>
+    <circle cx="270" cy="30" r="17" fill="#a3c9f5"/><circle cx="290" cy="110" r="17" fill="#b5e3a1"/>
+    <circle cx="180" cy="155" r="13" fill="#a3c9f5"/>
+  </svg>
+  <figcaption>Cada artista llega como mucho a cinco conexiones.</figcaption>
+</figure>
+<p>El botón amarillo trae hasta cinco artistas relacionados, en abanico hacia fuera. Los que ya están en el mapa no se
+repiten: se unen. Despliega cualquiera de los nuevos para seguir tirando del hilo. Cuando un artista ya tiene sus cinco
+conexiones (o no hay más), su botón se apaga.</p>
+<p>Si un artista no tiene relacionados guardados, la app los pide a Deezer en ese momento (hace falta conexión).</p>
+
+<h2 id="unir">Unir dos artistas</h2>
+<p>¿Qué camino lleva de Marea a Michael Jackson? Hay dos formas de averiguarlo:</p>
+<ul>
+  <li><b>Arrastrando:</b> abre el menú de un círculo, mantén pulsado el botón amarillo y arrastra la línea hasta otro círculo.
+    El camino se teje entre los dos, dentro del mapa que ya tienes.</li>
+  <li><b>Con un comando:</b> <code>/from Marea to Michael Jackson</code> empieza un mapa nuevo con la cadena en fila.
+    Mientras escribes, la barra te sugiere los nombres.</li>
+</ul>
+<p>Los artistas del camino van entrando uno a uno, unidos en dorado.</p>
+
+<h2 id="colores">Qué significan los colores</h2>
+<div class="card">
+  <p style="margin-top:0">El color del círculo es la familia de estilos del artista:</p>
+  <ul class="swatches">
+    <li><i style="background:#a3c9f5"></i>Rock</li><li><i style="background:#b5e3a1"></i>Pop</li>
+    <li><i style="background:#f5a9c8"></i>Metal</li><li><i style="background:#f3c6a5"></i>Hip hop</li>
+    <li><i style="background:#9de3d0"></i>Electrónica</li><li><i style="background:#f5a3a3"></i>Latina / Flamenco</li>
+    <li><i style="background:#c9bbf6"></i>Soul / Funk / Jazz / Blues</li><li><i style="background:#f6e3a1"></i>Clásica / Bandas sonoras</li>
+    <li><i style="background:#d9c3a5"></i>Folk / Cantautor</li><li><i style="background:#c0c6cf"></i>Otros</li>
+  </ul>
+  <p>Y el color de la línea, por qué están unidos:</p>
+  <ul class="swatches lines">
+    <li><i style="background:#634a7d"></i>Suenan parecido</li><li><i style="background:#c9bbf6"></i>Comparten miembros</li>
+    <li><i style="background:#9de3d0"></i>Uno influyó en el otro</li><li><i style="background:#ff2e88"></i>Camino entre dos</li>
+  </ul>
+  <p style="margin-bottom:0">Con <code>/label on</code> aparece la leyenda abajo a la izquierda; tocando una familia la ocultas o la vuelves a mostrar.</p>
+</div>
+
+<h2 id="musica">Música</h2>
+<p>El botón de reproducir del menú pone las canciones más escuchadas del artista (fragmentos de 30 segundos de Deezer);
+el círculo que suena se oscurece y late. El botón de abajo pausa y reanuda. Si quitas del mapa al artista que suena, la música se para.</p>
+
+<h2 id="mapas">Corona, limpiar, deshacer y guardar</h2>
+<ul>
+  <li><b>✕ (abajo) o <code>/clear</code>:</b> si hay coronas, deja solo los favoritos; un segundo ✕ lo borra todo y para la música.</li>
+  <li><b><code>/undo</code></b> (o <kbd>Ctrl</kbd>+<kbd>Z</kbd> en el ordenador): deshace el último cambio. Se puede repetir.</li>
+  <li><b><code>/save nombre</code></b> guarda el mapa en este dispositivo; <b><code>/load nombre</code></b> lo recupera tal cual,
+    incluso sin conexión. Al escribir <code>/load</code> aparecen los mapas guardados.</li>
+</ul>
+
+<h2 id="comandos">Todos los comandos</h2>
+<p>Escribe <code>/</code> en la barra y aparecen; <code>/help</code> los muestra todos y trae aquí.</p>
+<table>
+  <tr><td class="cmd">/from <b>A</b> to <b>B</b></td><td>Camino de relacionados entre dos artistas.</td></tr>
+  <tr><td class="cmd">/label <b>on</b>|<b>off</b></td><td>Muestra u oculta la leyenda de estilos.</td></tr>
+  <tr><td class="cmd">/clear</td><td>Limpia el mapa (como el ✕).</td></tr>
+  <tr><td class="cmd">/undo</td><td>Deshace el último cambio.</td></tr>
+  <tr><td class="cmd">/save <b>nombre</b></td><td>Guarda el mapa.</td></tr>
+  <tr><td class="cmd">/load <b>nombre</b></td><td>Recupera un mapa guardado.</td></tr>
+  <tr><td class="cmd">/help</td><td>Lista los comandos y enlaza esta página.</td></tr>
+  <tr><td class="cmd">/version [<b>log</b>|<b>b0.3.11</b>|<b>v</b>]</td><td>Versión de la app, fecha de los datos y conexión; con <b>log</b>, lo nuevo de cada versión; con un nombre, salta a esa beta (<b>b</b>…) o a la oficial (<b>v</b>).</td></tr>
+</table>
+<p>Cuando una búsqueda tarda, la barra dice <span class="cmd" style="color:var(--accent)">searching</span> y aparece un minijuego:
+un Pong con el círculo y su menú, o burbujas de colores. Se maneja con el dedo o el ratón y desaparece en cuanto llega el resultado.</p>
+
+<h2 id="movil">En el móvil</h2>
+<p>Bandora es una web que se instala como app. Abre la página en el navegador del móvil y elige
+<b>Añadir a pantalla de inicio</b> (o <b>Instalar app</b>). Desde entonces se abre a pantalla completa con su icono amarillo.</p>
+<p>Funciona <b>sin conexión</b> con todo lo guardado: buscar entre unos 43.000 artistas, desplegar los que tienen relacionados,
+los caminos y tus mapas. Lo que necesita red es la música, los artistas que no están en los datos y las fotos que aún no has visto.
+Cuando hay una versión nueva, basta cerrar la app y volver a abrirla.</p>
+
+<h2 id="datos">De dónde salen los datos</h2>
+<ul>
+  <li><b>Deezer:</b> artistas, fotos, fans, relacionados y canciones.</li>
+  <li><b>Last.fm:</b> artistas parecidos y etiquetas de estilo.</li>
+  <li><b>MusicBrainz</b> y <b>Wikidata:</b> quién comparte miembros con quién y quién influyó en quién.</li>
+</ul>
+<p>Todo se reúne en un archivo que viaja con la app. Tus mapas guardados se quedan en tu dispositivo.</p>
+
+<footer>Bandora · <a href="./">volver a la app</a></footer>
+</body>
+</html>
