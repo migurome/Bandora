@@ -18,11 +18,11 @@ setTimeout(async () => {
     ok('lema con el mapa vacío', document.body.classList.contains('empty') && !!document.querySelector('.tagline').textContent);
     { const p1 = $('q').placeholder; await sleep(1500);
       ok('la barra escribe nombres de ejemplo', $('q').placeholder !== p1 && !$('q').value); }
-    { let s = []; for (let i = 0; i < 60 && s.length < 3; i++) { await sleep(250); s = ambient.spots(); }
-      ok('el fondo trae artistas con foto', s.length >= 3);
+    { let s = []; for (let i = 0; i < 60 && s.length < 7; i++) { await sleep(250); s = ambient.spots(); }
+      ok('el fondo trae las letras de Bandora', s.map(x => x.letter).join('') === 'Bandora');
       const p = s[0];
       document.getElementById('svg').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: p.x, clientY: p.y })); await sleep(1500);
-      ok('los artistas del fondo no se abren', nodes.length === 0); }
+      ok('las letras del fondo no se abren', nodes.length === 0); }
     typeIn('Marea'); await sleep(2500);
     ok('el fondo se va al buscar', !$('ambient').classList.contains('on'));
     ok('busqueda', $('results').querySelectorAll('li').length > 0);
