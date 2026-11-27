@@ -89,6 +89,8 @@ button:hover { background: #3a3f49; }
 .node .gloss { pointer-events: none; }
 .node.playing .inner { opacity: .35; }
 .node text { pointer-events: none; user-select: none; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.node text.dbgid { font: 11px ui-monospace, monospace; fill: #e0569b; }
+.far .node text.dbgid { display: inline; }  /* en debug se ven aunque se aleje */
 .node .dot, .node clipPath circle { transition: r .2s; }
 .node .pic { transition: filter .3s; }
 /* arco que gira mientras se buscan las relacionadas */
@@ -133,7 +135,7 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = '3.7';  // súbela al publicar cambios (Fase 3 → 3.x)
+const VERSION = '3.8';  // súbela al publicar cambios (Fase 3 → 3.x)
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/(?<=\w)(?:\s*[&+]\s*|\s+(?:and|y|e|et|und)\s+)(?=\w)/g, ' ').replace(/[^a-z0-9]+/g, '');  // misma regla que weave/text.py
@@ -636,6 +638,7 @@ function render() {
   e.append('path').attr('class', 'playmark').attr('d', 'M-6,-9 L10,0 L-6,9 Z');
   e.append('path').attr('class', 'pinmark').attr('d', 'M-11,0 H11 L12.5,-11 L6.5,-6.5 L0,-14 L-6.5,-6.5 L-12.5,-11 Z');  // corona
   e.append('text').attr('class', 'label').attr('text-anchor', 'middle');
+  e.append('text').attr('class', 'dbgid').attr('text-anchor', 'middle');
 
   const all = e.merge(n).attr('class', d => 'node' + (hidden.has(d.genre) ? ' off' : '') + (isPlaying(d) ? ' playing' : ''));
   all.select('clipPath circle').attr('r', radius);
@@ -667,6 +670,10 @@ function render() {
       // debajo del círculo; encima mientras está ampliado (el menú ocupa la parte de abajo)
       .attr('dy', (t, i) => i > 0 ? LINE_H : d.open ? -(radius(d) + (d.pinned ? 22 : 10)) - (L.lines.length - 1) * LINE_H : radius(d) + 16)
       .text(t => t);
+  });
+  all.select('text.dbgid').text(d => showIds ? '#' + d.id : '').attr('y', d => {  // /debug id: pegado al nombre, por fuera
+    const n = d.picture ? nameLines(d).lines.length : 0;
+    return d.open ? -(radius(d) + (d.pinned ? 22 : 10)) - n * LINE_H : radius(d) + 16 + n * LINE_H;
   });
   renderMenus(all);
 
@@ -1078,13 +1085,14 @@ const COMMANDS = [
   { usage: '/version', fill: '/version', re: /^\/version$/i, run: () => showVersion() },
   { hidden: true, usage: '/debug', fill: '/debug ', re: /^\/debug(?:\s+(\w+))?$/i,
     run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
-      const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'off'].find(x => x.startsWith(w));
+      const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'id', 'off'].find(x => x.startsWith(w));
       if (!mode) return flashError();
+      if (mode === 'id' || mode === 'off') { showIds = mode === 'id'; render(); if (mode === 'id') return; }
       debugGame(mode === 'bubbles' ? 'bobble' : mode);
     } },
 ];
-// /debug pong|bobble: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
-let debugEnd = null;
+// /debug pong|bobble|id: lanza la espera con ese juego hasta /debug off, para probarlo sin esperar a una carga
+let debugEnd = null, showIds = false;  // /debug id: el id único de cada bola, para cazar duplicados y cruces
 async function debugGame(mode) {
   if (debugEnd) { debugEnd(); debugEnd = null; await new Promise(r => setTimeout(r, 0)); }  // que acabe la anterior
   if (mode === 'off') return;

@@ -60,6 +60,11 @@ setTimeout(async () => {
     cmd('/debug pong'); await sleep(600);
     { const n0 = nodes.length; $('clear').click(); await sleep(700);
       ok('✕ sale del debug sin borrar el mapa', !game.playing() && nodes.length === n0 && n0 > 0); }
+    cmd('/debug id'); await sleep(300);
+    { const ids = [...document.querySelectorAll('g.node text.dbgid')].map(t => t.textContent);
+      ok('/debug id: cada bola enseña su id único', !game.playing() && ids.length === nodes.length && ids.every((t, i) => t === '#' + d3.select(document.querySelectorAll('g.node')[i]).datum().id)); }
+    cmd('/debug off'); await sleep(300);
+    ok('/debug off oculta los ids', [...document.querySelectorAll('g.node text.dbgid')].every(t => !t.textContent));
     ok('fin de espera: sin «searching» ni juego', !bar.classList.contains('busy') && !game.playing());
     ok('motivo en la línea', links.length > 0 && links.every(l => ['similar', 'member', 'influence'].includes(l.kind)));
     clk(opt('play')); await sleep(2000);
