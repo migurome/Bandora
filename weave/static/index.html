@@ -135,22 +135,22 @@ button:hover { background: #3a3f49; }
 
 <script>
 // ---------- Utilidades ----------
-const VERSION = '0.3.10';  // súbela al publicar (0.fase.n: Fase 3 → 0.3.x; la 1.0 aún no ha llegado) y apúntalo en LOG
+const VERSION = 'v0.3.10';  // v oficial (raíz), b beta (carpeta propia: /version b0.3.11); 0.fase.n; apúntala en LOG
 const LOG = [  // /version log: lo nuevo de cada versión, la última arriba
-  ['0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes)'],
-  ['0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
-  ['0.3.8', '27/11', '/debug id enseña el identificador único de cada bola'],
-  ['0.3.7', '27/11', '/version; /debug oculto; corona a medida; «Fito y Fitipaldis» = «Fito & Fitipaldis»; miembros por su nombre artístico (UOHO)'],
-  ['0.3.6', '26/11', 'ayuda (/help y ayuda.html); el juego de espera ya no destella y libera memoria; la ✕ sale del /debug'],
-  ['0.3.5', '26/11', 'deshacer (/undo, Ctrl+Z) y mapas guardados (/save, /load)'],
-  ['0.3.4', '26/11', 'fondo animado en el arranque; sin foto, el nombre dentro de la bola; fotos y familias en vivo de Deezer'],
-  ['0.3.3', '26/11', 'juegos de espera: Pong y burbujas'],
-  ['0.3.2', '26/11', 'zoom fluido en el móvil; el artista buscado sale grande y centrado; icono nuevo'],
-  ['0.3.1', '26/11', 'Spotify abre la app en Android; instalable como app (manifest e iconos)'],
-  ['0.3.0', '26/11', 'app de móvil sola: datos exportados, Deezer en vivo, sin conexión; publicada en GitHub Pages'],
-  ['0.2.1', '25/11', 'Wikidata: relaciones por miembros e influencias, con el motivo en la línea'],
-  ['0.2.0', '25/11', 'Last.fm: familias de género y relacionadas con peso; corona de favoritas; unir dos artistas arrastrando'],
-  ['0.1.0', '25/11', 'base de datos propia (Deezer + MusicBrainz), caminos /from A to B, menú en el círculo'],
+  ['v0.3.10', '27/11', 'tocar fuera cierra el submenú de la barra; /debug test (pruebas en el móvil); /help -a; fuera las fichas vacías de Deezer (0 álbumes); /version b… para probar una beta'],
+  ['v0.3.9', '27/11', 'relacionados sin copias del propio artista («X & su banda» casi sin fans); /debug id <número> saca ese artista; /version log'],
+  ['v0.3.8', '27/11', '/debug id enseña el identificador único de cada bola'],
+  ['v0.3.7', '27/11', '/version; /debug oculto; corona a medida; «Fito y Fitipaldis» = «Fito & Fitipaldis»; miembros por su nombre artístico (UOHO)'],
+  ['v0.3.6', '26/11', 'ayuda (/help y ayuda.html); el juego de espera ya no destella y libera memoria; la ✕ sale del /debug'],
+  ['v0.3.5', '26/11', 'deshacer (/undo, Ctrl+Z) y mapas guardados (/save, /load)'],
+  ['v0.3.4', '26/11', 'fondo animado en el arranque; sin foto, el nombre dentro de la bola; fotos y familias en vivo de Deezer'],
+  ['v0.3.3', '26/11', 'juegos de espera: Pong y burbujas'],
+  ['v0.3.2', '26/11', 'zoom fluido en el móvil; el artista buscado sale grande y centrado; icono nuevo'],
+  ['v0.3.1', '26/11', 'Spotify abre la app en Android; instalable como app (manifest e iconos)'],
+  ['v0.3.0', '26/11', 'app de móvil sola: datos exportados, Deezer en vivo, sin conexión; publicada en GitHub Pages'],
+  ['v0.2.1', '25/11', 'Wikidata: relaciones por miembros e influencias, con el motivo en la línea'],
+  ['v0.2.0', '25/11', 'Last.fm: familias de género y relacionadas con peso; corona de favoritas; unir dos artistas arrastrando'],
+  ['v0.1.0', '25/11', 'base de datos propia (Deezer + MusicBrainz), caminos /from A to B, menú en el círculo'],
 ];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1098,7 +1098,7 @@ const COMMANDS = [
   { usage: '/undo', fill: '/undo', re: /^\/undo$/i, run: () => undo() },
   { usage: '/save <b>nombre</b>', fill: '/save ', re: /^\/save\s+(.+)$/i, run: m => saveMap(m[1].trim()) },
   { usage: '/load <b>nombre</b>', fill: '/load ', re: /^\/load\s+(.+)$/i, run: m => loadMap(m[1].trim()) },
-  { usage: '/version [log]', fill: '/version', re: /^\/version(\s+log)?$/i, run: m => m[1] ? showLog() : showVersion() },
+  { usage: '/version [log]', fill: '/version', re: /^\/version(?:\s+(\S+))?$/i, run: m => !m[1] ? showVersion() : /^log$/i.test(m[1]) ? showLog() : goVersion(m[1]) },
   { hidden: true, usage: '/debug pong|bobble|id [n]|test|off', fill: '/debug ', re: /^\/debug(?:\s+(\w+)(?:\s+#?(\w+))?)?$/i,
     run: m => {  // basta el principio de la palabra (en el móvil se escapa una letra): /debug bob, /debug po
       const w = (m[1] || 'pong').toLowerCase(), mode = ['pong', 'bobble', 'bubbles', 'id', 'test', 'off'].find(x => x.startsWith(w));
@@ -1148,6 +1148,20 @@ async function selfTest() {
   const bad = out.filter(x => x.startsWith('MAL')).length;
   out.unshift(`${VERSION} · ${bad ? bad + ' fallos' : 'todo bien'} · sin conexión: ${navigator.serviceWorker?.controller ? 'lista' : 'no instalada'}`);
   $('results').innerHTML = out.map(x => `<li class="cmd">${esc(x)}</li>`).join('');
+}
+// Las betas viven en su carpeta junto a la oficial: …/weave-bands/b0.3.11/; «v» (o v0.3.10) es la de la raíz
+const versionUrl = v => {
+  const root = new URL(VERSION.startsWith('b') ? '../' : './', location.href);
+  return v.startsWith('b') ? new URL(v + '/', root) : root;
+};
+async function goVersion(v) {
+  v = v.toLowerCase();
+  if (!/^[vb]/.test(v)) return flashError();
+  const url = versionUrl(v);
+  // existe si su página dice esa versión (con «v» a secas vale la oficial que haya)
+  const page = await fetch(new URL('index.html', url), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').catch(() => '');
+  if (!page.includes(v === 'v' ? "const VERSION = 'v" : `const VERSION = '${v}'`)) return flashError();
+  location.href = url;
 }
 function showLog() {
   $('results').innerHTML = LOG.map(([v, day, what]) => `<li class="cmd">${esc(`${v} · ${day} · ${what}`)}</li>`).join('');

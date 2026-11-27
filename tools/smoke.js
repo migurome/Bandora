@@ -141,6 +141,11 @@ setTimeout(async () => {
     { const n0 = nodes.length; cmd('/debug test'); await sleep(15000);
       const li = [...$('results').querySelectorAll('li')].map(x => x.textContent);
       ok('/debug test: pruebas en la web, todas bien y sin tocar el mapa', li.length > 4 && li.some(t => t.startsWith('ok ')) && !li.some(t => t.startsWith('MAL')) && nodes.length === n0); }
+    ok('versión con v (oficial) o b (beta)', /^[vb]\d/.test(VERSION));
+    ok('dirección de cada versión', versionUrl('b0.3.11').pathname.endsWith('/b0.3.11/') && versionUrl('v').pathname === new URL('./', location.href).pathname);
+    cmd('/version b9.9.99');
+    { let seen = false; for (let i = 0; i < 30 && !seen; i++) { await sleep(100); seen = $('q').classList.contains('err'); }
+      ok('/version a una beta que no existe: error', seen); }
     cmd('/version log'); await sleep(300);
     { const li = [...$('results').querySelectorAll('li')];
       ok('/version log: cambios por versión, el último arriba', li.length > 5 && li[0].textContent.startsWith(VERSION) && /0\.1/.test(li.at(-1).textContent)); }

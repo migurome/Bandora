@@ -45,6 +45,9 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin === location.origin) {
+    // solo lo de esta versión: la oficial no toca las carpetas de las betas (b0.3.11/…) ni una beta lo de fuera
+    const scope = new URL(self.registration.scope).pathname;
+    if (!url.pathname.startsWith(scope) || /^b\d/.test(url.pathname.slice(scope.length))) return;
     if (url.pathname.startsWith('/api/') || url.pathname.includes('_smoke') || url.pathname.includes('_pwa')) return;
     e.respondWith(FRESH.includes(url.pathname) ? networkFirst(e.request) : cacheFirst(e.request, APP));
   } else if (url.hostname.endsWith('dzcdn.net') && url.pathname.includes('/images/')) {
