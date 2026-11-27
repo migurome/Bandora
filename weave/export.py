@@ -32,7 +32,10 @@ def build(store: Store) -> dict:
         deezer.setdefault(aid, int(ext))
     related = {}
     for (aid,) in con.execute("SELECT DISTINCT a FROM relation").fetchall():
-        rel = store.artist(aid)["related"]
+        a = store.artist(aid)
+        if a is None:  # borrado mientras se exporta (p. ej. con «prune» en marcha)
+            continue
+        rel = a["related"]
         related[str(aid)] = [[r["id"], k] if (k := KINDS.index(r["kind"])) else r["id"] for r in rel]
     # solo los que se pueden alcanzar desplegando: con relacionadas o dentro de alguna lista
     keep = {int(a) for a in related} | {x if isinstance(x, int) else x[0] for rel in related.values() for x in rel}
